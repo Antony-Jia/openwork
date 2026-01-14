@@ -49,6 +49,10 @@ export interface Subagent {
   status: 'pending' | 'running' | 'completed' | 'failed'
   startedAt?: Date
   completedAt?: Date
+  // Used to correlate task tool calls with their responses
+  toolCallId?: string
+  // Type of subagent (e.g., 'general-purpose', 'correctness-checker', 'final-reviewer')
+  subagentType?: string
 }
 
 export type StreamEvent =

@@ -49,6 +49,8 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
         for await (const chunk of stream) {
           if (abortController.signal.aborted) break
 
+          console.log('[Agent] Stream chunk:', chunk)
+
           // With multiple stream modes, chunks are tuples: [mode, data]
           const [mode, data] = chunk as [string, unknown]
 
