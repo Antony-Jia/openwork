@@ -1,5 +1,5 @@
 /**
- * Base system prompt for the openwork agent.
+ * Base system prompt for the deepwork agent.
  *
  * Adapted from deepagents-cli default_agent_prompt.md
  */

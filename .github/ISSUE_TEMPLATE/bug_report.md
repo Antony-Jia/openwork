@@ -27,7 +27,7 @@ What actually happened.
 ## Environment
 
 - **OS**: [e.g., macOS 14.0, Windows 11, Ubuntu 22.04]
-- **openwork version**: [e.g., 0.2.0]
+- **deepwork version**: [e.g., 0.2.0]
 - **Node.js version**: [e.g., 20.10.0]
 - **Installation method**: [npm / from source]
 

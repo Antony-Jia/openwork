@@ -34,8 +34,8 @@ Include the following information in your report:
 
 This security policy applies to:
 
-- The openwork desktop application
-- The npm package `openwork`
+- The deepwork desktop application
+- The npm package `deepwork`
 - This GitHub repository
 
 ### Out of Scope
@@ -46,9 +46,9 @@ This security policy applies to:
 
 ## Security Best Practices for Users
 
-When using openwork:
+When using deepwork:
 
 1. **API Keys**: Store API keys securely using environment variables rather than hardcoding them.
 2. **Sensitive Data**: Be cautious when giving agents access to directories containing sensitive information.
 3. **Human-in-the-Loop**: Use the approval system for sensitive operations.
-4. **Updates**: Keep openwork updated to receive security patches.
+4. **Updates**: Keep deepwork updated to receive security patches.

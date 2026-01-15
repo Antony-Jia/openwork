@@ -1,33 +1,33 @@
 #!/usr/bin/env node
 /* eslint-disable @typescript-eslint/no-require-imports */
 /**
- * openwork CLI - Launches the Electron app
+ * deepwork CLI - Launches the Electron app
  */
 
 const { spawn } = require('child_process')
 const path = require('path')
 
 // Set process title for Activity Monitor
-process.title = 'openwork'
+process.title = 'deepwork'
 
 const args = process.argv.slice(2)
 
 // Handle --version flag
 if (args.includes('--version') || args.includes('-v')) {
   const { version } = require('../package.json')
-  console.log(`openwork v${version}`)
+  console.log(`deepwork v${version}`)
   process.exit(0)
 }
 
 // Handle --help flag
 if (args.includes('--help') || args.includes('-h')) {
   console.log(`
-openwork - A tactical agent interface for deepagentsjs
+deepwork - A tactical agent interface for deepagentsjs
 
 Usage:
-  openwork              Launch the application
-  openwork --version    Show version
-  openwork --help       Show this help
+  deepwork              Launch the application
+  deepwork --version    Show version
+  deepwork --help       Show this help
 `)
   process.exit(0)
 }
@@ -58,6 +58,6 @@ child.on('close', (code) => {
 })
 
 child.on('error', (err) => {
-  console.error('Failed to start openwork:', err.message)
+  console.error('Failed to start deepwork:', err.message)
   process.exit(1)
 })

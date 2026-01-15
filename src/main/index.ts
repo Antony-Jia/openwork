@@ -50,7 +50,7 @@ function createWindow(): void {
 app.whenReady().then(async () => {
   // Set app user model id for windows
   if (process.platform === 'win32') {
-    app.setAppUserModelId(isDev ? process.execPath : 'com.langchain.openwork')
+    app.setAppUserModelId(isDev ? process.execPath : 'com.langchain.deepwork')
   }
 
   // Set dock icon on macOS

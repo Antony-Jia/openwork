@@ -4,12 +4,12 @@ import * as fs from 'fs/promises'
 import * as path from 'path'
 import type { ModelConfig, Provider } from '../types'
 import { startWatching, stopWatching } from '../services/workspace-watcher'
-import { getOpenworkDir, getApiKey, setApiKey, deleteApiKey, hasApiKey } from '../storage'
+import { getDeepworkDir, getApiKey, setApiKey, deleteApiKey, hasApiKey } from '../storage'
 
 // Store for non-sensitive settings only (no encryption needed)
 const store = new Store({
   name: 'settings',
-  cwd: getOpenworkDir()
+  cwd: getDeepworkDir()
 })
 
 // Provider configurations
@@ -175,7 +175,7 @@ export function registerModelHandlers(ipcMain: IpcMain): void {
     store.set('defaultModel', modelId)
   })
 
-  // Set API key for a provider (stored in ~/.openwork/.env)
+  // Set API key for a provider (stored in ~/.deepwork/.env)
   ipcMain.handle(
     'models:setApiKey',
     async (_event, { provider, apiKey }: { provider: string; apiKey: string }) => {
@@ -183,7 +183,7 @@ export function registerModelHandlers(ipcMain: IpcMain): void {
     }
   )
 
-  // Get API key for a provider (from ~/.openwork/.env or process.env)
+  // Get API key for a provider (from ~/.deepwork/.env or process.env)
   ipcMain.handle('models:getApiKey', async (_event, provider: string) => {
     return getApiKey(provider) ?? null
   })

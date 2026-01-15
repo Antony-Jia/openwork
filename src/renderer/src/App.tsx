@@ -131,7 +131,7 @@ function App(): React.JSX.Element {
           transformOrigin: 'top left'
         }}
       >
-        <span className="app-badge-name">OPENWORK</span>
+        <span className="app-badge-name">DEEPWORK</span>
         <span className="app-badge-version">{__APP_VERSION__}</span>
       </div>
 
