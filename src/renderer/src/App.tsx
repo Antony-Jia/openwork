@@ -35,7 +35,7 @@ function App(): React.JSX.Element {
 
         // Titlebar is 36px CSS (9*4), which becomes 36*zoom screen pixels
         // We set logic here if we need zoom-aware padding.
-        // For standard Windows titlebar, this is less critical than macOS traffic lights, 
+        // For standard Windows titlebar, this is less critical than macOS traffic lights,
         // but we keep the listener for robustness.
         const TRAFFIC_LIGHT_BOTTOM_SCREEN = 40
         const TITLEBAR_HEIGHT_CSS = 36
@@ -126,10 +126,10 @@ function App(): React.JSX.Element {
         <TitleBar threadId={currentThreadId} />
 
         {/* Main Workspace Area */}
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
 
           {/* Left + Center Layout */}
-          <div className="flex flex-1 min-w-0">
+          <div className="flex flex-1 min-w-0 min-h-0">
             {/* Sidebar (Thread List) */}
             <div style={{ width: leftWidth }} className="shrink-0 flex flex-col border-r border-border bg-sidebar/50">
               <ThreadSidebar />
@@ -138,7 +138,7 @@ function App(): React.JSX.Element {
             <ResizeHandle onDrag={handleLeftResize} />
 
             {/* Center Panel (Chat) */}
-            <main className="flex flex-1 flex-col min-w-0 overflow-hidden bg-background/50 relative">
+            <main className="flex flex-1 flex-col min-w-0 min-h-0 overflow-hidden bg-background/50 relative">
               {/* Center Header with Tabs */}
               {currentThreadId && (
                 <div className="h-9 border-b border-border flex items-center px-1 shrink-0 bg-background/50 backdrop-blur-sm">
@@ -146,7 +146,7 @@ function App(): React.JSX.Element {
                 </div>
               )}
 
-              <div className="flex-1 overflow-hidden relative">
+              <div className="flex-1 flex flex-col min-h-0">
                 {currentThreadId ? (
                   <TabbedPanel threadId={currentThreadId} showTabBar={false} />
                 ) : (

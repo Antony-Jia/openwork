@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { Send, Square, Loader2, AlertCircle, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { useAppStore } from "@/lib/store"
 import { useCurrentThread, useThreadStream } from "@/lib/thread-context"
 import { MessageBubble } from "./MessageBubble"
@@ -166,11 +165,9 @@ export function ChatContainer({ threadId }: ChatContainerProps): React.JSX.Eleme
     return results
   }, [displayMessages])
 
-  // Get the actual scrollable viewport element from Radix ScrollArea
+  // Get the scrollable container element (now native div)
   const getViewport = useCallback((): HTMLDivElement | null => {
-    return scrollRef.current?.querySelector(
-      "[data-radix-scroll-area-viewport]"
-    ) as HTMLDivElement | null
+    return scrollRef.current
   }, [])
 
   // Track scroll position to determine if user is at bottom
@@ -294,10 +291,10 @@ export function ChatContainer({ threadId }: ChatContainerProps): React.JSX.Eleme
   }
 
   return (
-    <div className="flex flex-1 flex-col h-full min-h-0 overflow-hidden">
-      {/* Messages */}
-      <ScrollArea className="flex-1 h-0 min-h-0" ref={scrollRef}>
-        <div className="p-4">
+    <div className="flex flex-col flex-1 min-h-0">
+      {/* Messages - scrollable area */}
+      <div className="flex-1 overflow-y-auto min-h-0" ref={scrollRef}>
+        <div className="p-4 pb-2">
           <div className="max-w-3xl mx-auto space-y-4">
             {displayMessages.length === 0 && !isLoading && (
               <div className="flex flex-col items-center justify-center py-20 text-muted-foreground animate-in fade-in duration-500">
@@ -370,10 +367,10 @@ export function ChatContainer({ threadId }: ChatContainerProps): React.JSX.Eleme
             )}
           </div>
         </div>
-      </ScrollArea>
+      </div>
 
-      {/* Input */}
-      <div className="shrink-0 px-4 pb-4 pt-2 bg-background/50 backdrop-blur-sm border-t border-border/0">
+      {/* Input - stays at bottom */}
+      <div className="flex-shrink-0 px-4 pb-4 pt-2 bg-background border-t border-border/30">
         <form onSubmit={handleSubmit} className="max-w-3xl mx-auto relative">
           <div className="relative flex flex-col gap-2 rounded-xl border border-border bg-background shadow-sm focus-within:shadow-md focus-within:border-ring/30 transition-all duration-200 p-2">
             <textarea

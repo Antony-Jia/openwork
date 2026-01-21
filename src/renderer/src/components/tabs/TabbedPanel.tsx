@@ -24,7 +24,7 @@ export function TabbedPanel({ threadId, showTabBar = true }: TabbedPanelProps): 
       <div className="h-1 shrink-0 bg-gradient-to-b from-sidebar/80 to-transparent" />
 
       {/* Content Area */}
-      <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-h-0">
         {isAgentTab ? (
           <ChatContainer threadId={threadId} />
         ) : activeFile ? (
