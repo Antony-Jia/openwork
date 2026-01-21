@@ -150,6 +150,14 @@ const api = {
       return ipcRenderer.invoke("models:deleteApiKey", provider)
     }
   },
+  provider: {
+    getConfig: (): Promise<unknown> => {
+      return ipcRenderer.invoke("provider:getConfig")
+    },
+    setConfig: (config: unknown): Promise<void> => {
+      return ipcRenderer.invoke("provider:setConfig", config)
+    }
+  },
   workspace: {
     get: (threadId?: string): Promise<string | null> => {
       return ipcRenderer.invoke("workspace:get", threadId)

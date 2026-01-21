@@ -24,6 +24,21 @@ const translations = {
         "settings.theme.light": "Light",
         "app.title": "OPENWORK",
 
+        // Provider Configuration
+        "provider.title": "MODEL PROVIDER",
+        "provider.ollama": "Ollama (Local)",
+        "provider.openai_compatible": "OpenAI Compatible",
+        "provider.url": "API URL",
+        "provider.model": "Model Name",
+        "provider.api_key": "API Key",
+        "provider.save": "Save",
+        "provider.saved": "Saved",
+        "provider.not_configured": "Not configured",
+        "provider.url_placeholder_ollama": "http://localhost:11434",
+        "provider.url_placeholder_openai": "https://api.openai.com/v1",
+        "provider.model_placeholder": "e.g. qwen2.5:7b or gpt-4o",
+        "provider.key_placeholder": "sk-...",
+
         // Window Controls
         "window.minimize": "Minimize",
         "window.maximize": "Maximize",
@@ -83,6 +98,21 @@ const translations = {
         "settings.theme.light": "浅色",
         "app.title": "OPENWORK",
 
+        // Provider Configuration
+        "provider.title": "模型提供者",
+        "provider.ollama": "Ollama（本地）",
+        "provider.openai_compatible": "OpenAI 兼容",
+        "provider.url": "API 地址",
+        "provider.model": "模型名称",
+        "provider.api_key": "API 密钥",
+        "provider.save": "保存",
+        "provider.saved": "已保存",
+        "provider.not_configured": "未配置",
+        "provider.url_placeholder_ollama": "http://localhost:11434",
+        "provider.url_placeholder_openai": "https://api.openai.com/v1",
+        "provider.model_placeholder": "如 qwen2.5:7b 或 gpt-4o",
+        "provider.key_placeholder": "sk-...",
+
         // Window Controls
         "window.minimize": "最小化",
         "window.maximize": "最大化",
@@ -125,7 +155,7 @@ const translations = {
         "panel.link_folder": "关联",
         "panel.sync_files": "同步",
         "panel.change_folder": "切换",
-        "panel.link_desc": "点击“关联”设置同步文件夹",
+        "panel.link_desc": "点击\"关联\"设置同步文件夹",
 
         // General
         "common.progress": "进度",

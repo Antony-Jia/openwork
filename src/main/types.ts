@@ -98,6 +98,24 @@ export interface ModelConfig {
   available: boolean
 }
 
+// New simplified provider configuration types
+export type SimpleProviderId = "ollama" | "openai-compatible"
+
+export interface OllamaConfig {
+  type: "ollama"
+  url: string      // e.g., "http://localhost:11434"
+  model: string    // e.g., "qwen2.5:7b"
+}
+
+export interface OpenAICompatibleConfig {
+  type: "openai-compatible"
+  url: string      // e.g., "https://api.deepseek.com"
+  apiKey: string
+  model: string    // e.g., "deepseek-chat"
+}
+
+export type ProviderConfig = OllamaConfig | OpenAICompatibleConfig
+
 // Subagent types (from deepagentsjs)
 export interface Subagent {
   id: string

@@ -5,13 +5,14 @@ import * as path from "path"
 import type {
   ModelConfig,
   Provider,
+  ProviderConfig,
   SetApiKeyParams,
   WorkspaceSetParams,
   WorkspaceLoadParams,
   WorkspaceFileParams
 } from "../types"
 import { startWatching, stopWatching } from "../services/workspace-watcher"
-import { getOpenworkDir, getApiKey, setApiKey, deleteApiKey, hasApiKey } from "../storage"
+import { getOpenworkDir, getApiKey, setApiKey, deleteApiKey, hasApiKey, getProviderConfig, setProviderConfig } from "../storage"
 
 // Store for non-sensitive settings only (no encryption needed)
 const store = new Store({
@@ -245,6 +246,20 @@ export function registerModelHandlers(ipcMain: IpcMain): void {
       ...provider,
       hasApiKey: hasApiKey(provider.id)
     }))
+  })
+
+  // =========================================================================
+  // New simplified provider configuration handlers
+  // =========================================================================
+
+  // Get current provider configuration
+  ipcMain.handle("provider:getConfig", async () => {
+    return getProviderConfig()
+  })
+
+  // Set provider configuration
+  ipcMain.handle("provider:setConfig", async (_event, config: ProviderConfig) => {
+    setProviderConfig(config)
   })
 
   // Sync version info

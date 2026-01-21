@@ -294,9 +294,9 @@ export function ChatContainer({ threadId }: ChatContainerProps): React.JSX.Eleme
   }
 
   return (
-    <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
+    <div className="flex flex-1 flex-col h-full min-h-0 overflow-hidden">
       {/* Messages */}
-      <ScrollArea className="flex-1 min-h-0" ref={scrollRef}>
+      <ScrollArea className="flex-1 h-0 min-h-0" ref={scrollRef}>
         <div className="p-4">
           <div className="max-w-3xl mx-auto space-y-4">
             {displayMessages.length === 0 && !isLoading && (
@@ -373,7 +373,7 @@ export function ChatContainer({ threadId }: ChatContainerProps): React.JSX.Eleme
       </ScrollArea>
 
       {/* Input */}
-      <div className="px-4 pb-4 pt-2 bg-background/50 backdrop-blur-sm border-t border-border/0">
+      <div className="shrink-0 px-4 pb-4 pt-2 bg-background/50 backdrop-blur-sm border-t border-border/0">
         <form onSubmit={handleSubmit} className="max-w-3xl mx-auto relative">
           <div className="relative flex flex-col gap-2 rounded-xl border border-border bg-background shadow-sm focus-within:shadow-md focus-within:border-ring/30 transition-all duration-200 p-2">
             <textarea

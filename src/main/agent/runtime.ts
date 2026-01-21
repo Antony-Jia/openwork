@@ -1,10 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { createDeepAgent } from "deepagents"
-import { getDefaultModel } from "../ipc/models"
-import { getApiKey, getThreadCheckpointPath } from "../storage"
-import { ChatAnthropic } from "@langchain/anthropic"
+import { getThreadCheckpointPath, getProviderConfig } from "../storage"
 import { ChatOpenAI } from "@langchain/openai"
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai"
 import { SqlJsSaver } from "../checkpointer/sqljs-saver"
 import { LocalSandbox } from "./local-sandbox"
 
@@ -58,8 +55,52 @@ export async function closeCheckpointer(threadId: string): Promise<void> {
   }
 }
 
-// Get the appropriate model instance based on configuration
+// Get the appropriate model instance based on new simplified provider configuration
 function getModelInstance(
+  _modelId?: string
+): ChatOpenAI {
+  const config = getProviderConfig()
+
+  if (!config) {
+    throw new Error("Provider not configured. Please configure Ollama or OpenAI-compatible provider in Settings.")
+  }
+
+  console.log("[Runtime] Using provider config:", config.type)
+  console.log("[Runtime] Model:", config.model)
+
+  if (config.type === "ollama") {
+    // Ollama uses OpenAI-compatible API at /v1 endpoint
+    const baseURL = config.url.endsWith("/v1") ? config.url : `${config.url}/v1`
+    console.log("[Runtime] Ollama baseURL:", baseURL)
+
+    return new ChatOpenAI({
+      model: config.model,
+      configuration: {
+        baseURL: baseURL
+      },
+      // Ollama doesn't need an API key, but ChatOpenAI requires one
+      // Use a placeholder value
+      apiKey: "ollama"
+    })
+  } else {
+    // OpenAI-compatible provider
+    console.log("[Runtime] OpenAI-compatible baseURL:", config.url)
+
+    return new ChatOpenAI({
+      model: config.model,
+      apiKey: config.apiKey,
+      configuration: {
+        baseURL: config.url
+      }
+    })
+  }
+}
+
+// ============================================================================
+// Legacy provider selection logic (kept for reference, not used)
+// ============================================================================
+/*
+function getModelInstanceLegacy(
   modelId?: string
 ): ChatAnthropic | ChatOpenAI | ChatGoogleGenerativeAI | string {
   const model = modelId || getDefaultModel()
@@ -106,6 +147,7 @@ function getModelInstance(
   // Default to model string (let deepagents handle it)
   return model
 }
+*/
 
 export interface CreateAgentRuntimeOptions {
   /** Thread ID - REQUIRED for per-thread checkpointing */
