@@ -25,6 +25,8 @@ const translations = {
     "app.title": "OPENWORK",
     "titlebar.subagents": "Subagents",
     "titlebar.skills": "Skills",
+    "titlebar.tools": "Tools",
+    "titlebar.container": "Container",
 
     // Provider Configuration
     "provider.title": "MODEL PROVIDER",
@@ -69,6 +71,10 @@ const translations = {
     "chat.workspace_picker_active_desc": "The agent will read and write files in this folder.",
     "chat.select_folder": "Select Folder",
     "chat.change_folder": "Change Folder",
+    "chat.docker_ready": "Docker mode is ready. Send a message to start.",
+
+    // Common
+    "common.loading": "Loading...",
 
     // Panels
     "panel.tasks": "TASKS",
@@ -85,6 +91,8 @@ const translations = {
     "panel.sync_files": "Sync",
     "panel.change_folder": "Change",
     "panel.link_desc": 'Click "Link" to set a sync folder',
+    "panel.docker_mounts": "Docker mounts",
+    "panel.docker_mounts_desc": "Files are shown from Docker mount paths",
 
     // Subagents
     "subagents.title": "SUBAGENTS",
@@ -97,10 +105,34 @@ const translations = {
     "subagents.model_hint": "Model uses current provider unless overridden",
     "subagents.tools": "Tools",
     "subagents.middleware": "Middleware",
+    "subagents.tools_empty": "No tools available",
+    "subagents.middleware_empty": "No middleware available",
     "subagents.save": "Save",
     "subagents.cancel": "Cancel",
     "subagents.edit": "Edit",
     "subagents.delete": "Delete",
+
+    // Container
+    "container.title": "CONTAINER",
+    "container.status": "Docker status",
+    "container.available": "Available",
+    "container.unavailable": "Unavailable",
+    "container.enabled": "Docker mode",
+    "container.image": "Image",
+    "container.cpu": "CPU (cores)",
+    "container.memory": "Memory (MB)",
+    "container.mounts": "Mounts",
+    "container.add_mount": "Add mount",
+    "container.host_path": "Host path",
+    "container.container_path": "Container path",
+    "container.read_only": "Read-only",
+    "container.ports": "Ports",
+    "container.add_port": "Add port",
+    "container.port_host": "Host",
+    "container.port_container": "Container",
+    "container.protocol": "Protocol",
+    "container.save": "Save",
+    "container.disabled_hint": "Docker mode is off",
 
     // Skills
     "skills.title": "SKILLS",
@@ -112,7 +144,8 @@ const translations = {
     "skills.name_hint": "lowercase-hyphen format",
     "skills.description": "Description",
     "skills.content": "Content",
-    "skills.content_placeholder": "Include YAML frontmatter (name/description). Leave empty to auto-generate.",
+    "skills.content_placeholder":
+      "Include YAML frontmatter (name/description). Leave empty to auto-generate.",
     "skills.path": "Path",
     "skills.install_path": "Skill Path",
     "skills.install_hint": "Folder containing SKILL.md or the SKILL.md file path",
@@ -120,6 +153,22 @@ const translations = {
     "skills.cancel": "Cancel",
     "skills.edit": "Edit",
     "skills.delete": "Delete",
+
+    // Tools
+    "tools.title": "TOOLS",
+    "tools.empty": "No tools available",
+    "tools.env_var": "Env",
+    "tools.status_configured": "CONFIGURED",
+    "tools.status_missing": "MISSING",
+    "tools.key": "Key",
+    "tools.key_placeholder": "Enter API key",
+    "tools.clear": "Clear",
+    "tools.save": "Save",
+    "tools.enabled": "ENABLED",
+    "tools.disabled": "DISABLED",
+    "tools.disabled_hint": "Disabled tools are not injected into agents.",
+    "tools.load_failed": "Failed to load tools",
+    "tools.save_failed": "Failed to save tool key",
 
     // General
     "common.progress": "PROGRESS",
@@ -137,6 +186,8 @@ const translations = {
     "app.title": "OPENWORK",
     "titlebar.subagents": "智能体",
     "titlebar.skills": "技能",
+    "titlebar.tools": "工具",
+    "titlebar.container": "容器",
 
     // Provider Configuration
     "provider.title": "模型提供者",
@@ -181,6 +232,10 @@ const translations = {
     "chat.workspace_picker_active_desc": "智能体将在此文件夹中读写文件。",
     "chat.select_folder": "选择文件夹",
     "chat.change_folder": "更改文件夹",
+    "chat.docker_ready": "Docker模式已就绪，可直接开始对话。",
+
+    // Common
+    "common.loading": "加载中...",
 
     // Panels
     "panel.tasks": "任务列表",
@@ -197,6 +252,8 @@ const translations = {
     "panel.sync_files": "同步",
     "panel.change_folder": "切换",
     "panel.link_desc": '点击"关联"设置同步文件夹',
+    "panel.docker_mounts": "Docker挂载",
+    "panel.docker_mounts_desc": "文件来自Docker挂载路径",
 
     // Subagents
     "subagents.title": "智能体管理",
@@ -209,10 +266,34 @@ const translations = {
     "subagents.model_hint": "模型默认使用当前配置",
     "subagents.tools": "工具",
     "subagents.middleware": "中间件",
+    "subagents.tools_empty": "暂无可用工具",
+    "subagents.middleware_empty": "暂无可用中间件",
     "subagents.save": "保存",
     "subagents.cancel": "取消",
     "subagents.edit": "编辑",
     "subagents.delete": "删除",
+
+    // Container
+    "container.title": "容器",
+    "container.status": "Docker状态",
+    "container.available": "可用",
+    "container.unavailable": "不可用",
+    "container.enabled": "Docker模式",
+    "container.image": "镜像",
+    "container.cpu": "CPU(核)",
+    "container.memory": "内存(MB)",
+    "container.mounts": "挂载",
+    "container.add_mount": "新增挂载",
+    "container.host_path": "宿主路径",
+    "container.container_path": "容器路径",
+    "container.read_only": "只读",
+    "container.ports": "端口",
+    "container.add_port": "新增端口",
+    "container.port_host": "宿主",
+    "container.port_container": "容器",
+    "container.protocol": "协议",
+    "container.save": "保存",
+    "container.disabled_hint": "Docker模式未开启",
 
     // Skills
     "skills.title": "技能管理",
@@ -232,6 +313,22 @@ const translations = {
     "skills.cancel": "取消",
     "skills.edit": "编辑",
     "skills.delete": "删除",
+
+    // Tools
+    "tools.title": "工具管理",
+    "tools.empty": "暂无工具",
+    "tools.env_var": "环境变量",
+    "tools.status_configured": "已配置",
+    "tools.status_missing": "未配置",
+    "tools.key": "密钥",
+    "tools.key_placeholder": "请输入 API Key",
+    "tools.clear": "清空",
+    "tools.save": "保存",
+    "tools.enabled": "已启用",
+    "tools.disabled": "已禁用",
+    "tools.disabled_hint": "禁用的工具不会注入到智能体。",
+    "tools.load_failed": "工具加载失败",
+    "tools.save_failed": "工具保存失败",
 
     // General
     "common.progress": "进度",

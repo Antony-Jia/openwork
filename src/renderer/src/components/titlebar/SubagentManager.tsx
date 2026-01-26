@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useState } from "react"
 import { Bot, Plus, Pencil, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -11,25 +11,31 @@ import {
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { useLanguage } from "@/lib/i18n"
-import type { SubagentConfig } from "@/types"
+import type { MiddlewareDefinition, SubagentConfig, ToolInfo } from "@/types"
 
 interface SubagentFormState {
   name: string
   description: string
   systemPrompt: string
   interruptOn: boolean
+  tools: string[]
+  middleware: string[]
 }
 
 const emptyForm: SubagentFormState = {
   name: "",
   description: "",
   systemPrompt: "",
-  interruptOn: false
+  interruptOn: false,
+  tools: [],
+  middleware: []
 }
 
 export function SubagentManager(): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const [subagents, setSubagents] = useState<SubagentConfig[]>([])
+  const [tools, setTools] = useState<ToolInfo[]>([])
+  const [middleware, setMiddleware] = useState<MiddlewareDefinition[]>([])
   const [mode, setMode] = useState<"list" | "create" | "edit">("list")
   const [form, setForm] = useState<SubagentFormState>(emptyForm)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -41,10 +47,25 @@ export function SubagentManager(): React.JSX.Element {
     setSubagents(items)
   }, [])
 
-  useEffect(() => {
-    if (!open) return
-    loadSubagents()
-  }, [open, loadSubagents])
+  const loadTools = useCallback(async () => {
+    try {
+      console.log("[SubagentManager] loadTools calling...")
+      const items = await window.api.tools.list()
+      console.log("[SubagentManager] loadTools received:", items, "length:", items?.length)
+      if (items && Array.isArray(items)) {
+        setTools(items)
+      } else {
+        console.error("[SubagentManager] loadTools received invalid data:", items)
+      }
+    } catch (e) {
+      console.error("[SubagentManager] loadTools error:", e)
+    }
+  }, [])
+
+  const loadMiddleware = useCallback(async () => {
+    const items = await window.api.middleware.list()
+    setMiddleware(items)
+  }, [])
 
   const resetForm = (): void => {
     setForm(emptyForm)
@@ -65,11 +86,31 @@ export function SubagentManager(): React.JSX.Element {
       name: agent.name,
       description: agent.description,
       systemPrompt: agent.systemPrompt,
-      interruptOn: agent.interruptOn ?? false
+      interruptOn: agent.interruptOn ?? false,
+      tools: agent.tools ?? [],
+      middleware: agent.middleware ?? []
     })
     setEditingId(agent.id)
     setError(null)
     setMode("edit")
+  }
+
+  const toggleTool = (name: string): void => {
+    setForm((prev) => {
+      const exists = prev.tools.includes(name)
+      const nextTools = exists ? prev.tools.filter((tool) => tool !== name) : [...prev.tools, name]
+      return { ...prev, tools: nextTools }
+    })
+  }
+
+  const toggleMiddleware = (id: string): void => {
+    setForm((prev) => {
+      const exists = prev.middleware.includes(id)
+      const nextMiddleware = exists
+        ? prev.middleware.filter((item) => item !== id)
+        : [...prev.middleware, id]
+      return { ...prev, middleware: nextMiddleware }
+    })
   }
 
   const handleSave = async (): Promise<void> => {
@@ -80,6 +121,8 @@ export function SubagentManager(): React.JSX.Element {
           name: form.name,
           description: form.description,
           systemPrompt: form.systemPrompt,
+          tools: form.tools,
+          middleware: form.middleware,
           interruptOn: form.interruptOn
         })
       } else if (mode === "edit" && editingId) {
@@ -87,6 +130,8 @@ export function SubagentManager(): React.JSX.Element {
           name: form.name,
           description: form.description,
           systemPrompt: form.systemPrompt,
+          tools: form.tools,
+          middleware: form.middleware,
           interruptOn: form.interruptOn
         })
       }
@@ -108,8 +153,13 @@ export function SubagentManager(): React.JSX.Element {
   const handleOpenChange = (next: boolean): void => {
     if (!next) {
       resetForm()
+      setOpen(next)
+      return
     }
     setOpen(next)
+    void loadSubagents()
+    void loadTools()
+    void loadMiddleware()
   }
 
   return (
@@ -125,7 +175,7 @@ export function SubagentManager(): React.JSX.Element {
         )}
         title={t("titlebar.subagents")}
         aria-label={t("titlebar.subagents")}
-        onClick={() => setOpen(true)}
+        onClick={() => handleOpenChange(true)}
       >
         <Bot className="size-4" />
       </Button>
@@ -194,7 +244,9 @@ export function SubagentManager(): React.JSX.Element {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs text-muted-foreground">{t("subagents.system_prompt")}</label>
+              <label className="text-xs text-muted-foreground">
+                {t("subagents.system_prompt")}
+              </label>
               <textarea
                 value={form.systemPrompt}
                 onChange={(e) => setForm((prev) => ({ ...prev, systemPrompt: e.target.value }))}
@@ -203,22 +255,101 @@ export function SubagentManager(): React.JSX.Element {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-xs text-muted-foreground">{t("subagents.tools")}</label>
-                <select
-                  disabled
-                  className="h-9 w-full rounded-sm border border-input bg-muted px-3 text-sm text-muted-foreground"
-                >
-                  <option>None</option>
-                </select>
+                <label className="text-xs text-muted-foreground">
+                  {t("subagents.tools")} ({tools.length})
+                </label>
+                {tools.length === 0 ? (
+                  <div className="rounded-sm border border-dashed border-border p-3 text-xs text-muted-foreground">
+                    {t("subagents.tools_empty")}
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                    {tools.map((tool) => {
+                      const isSelected = form.tools.includes(tool.name)
+                      return (
+                        <div
+                          key={tool.name}
+                          onClick={() => toggleTool(tool.name)}
+                          className={cn(
+                            "rounded-sm border p-2 cursor-pointer transition-colors",
+                            isSelected
+                              ? "border-primary bg-primary/10"
+                              : "border-border hover:border-primary/50 hover:bg-muted/50"
+                          )}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleTool(tool.name)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="shrink-0"
+                              />
+                              <span className="text-xs font-medium text-foreground truncate">
+                                {tool.label}
+                              </span>
+                            </div>
+                            {!tool.enabled && (
+                              <span className="text-[10px] text-muted-foreground shrink-0">
+                                {t("tools.disabled")}
+                              </span>
+                            )}
+                          </div>
+                          {tool.description && (
+                            <div className="text-[10px] text-muted-foreground mt-1 pl-5 line-clamp-2">
+                              {tool.description}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <label className="text-xs text-muted-foreground">{t("subagents.middleware")}</label>
-                <select
-                  disabled
-                  className="h-9 w-full rounded-sm border border-input bg-muted px-3 text-sm text-muted-foreground"
-                >
-                  <option>None</option>
-                </select>
+                {middleware.length === 0 ? (
+                  <div className="rounded-sm border border-dashed border-border p-3 text-xs text-muted-foreground">
+                    {t("subagents.middleware_empty")}
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                    {middleware.map((item) => {
+                      const isSelected = form.middleware.includes(item.id)
+                      return (
+                        <div
+                          key={item.id}
+                          onClick={() => toggleMiddleware(item.id)}
+                          className={cn(
+                            "rounded-sm border p-2 cursor-pointer transition-colors",
+                            isSelected
+                              ? "border-primary bg-primary/10"
+                              : "border-border hover:border-primary/50 hover:bg-muted/50"
+                          )}
+                        >
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleMiddleware(item.id)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="shrink-0"
+                            />
+                            <span className="text-xs font-medium text-foreground truncate">
+                              {item.label}
+                            </span>
+                          </div>
+                          {item.description && (
+                            <div className="text-[10px] text-muted-foreground mt-1 pl-5 line-clamp-2">
+                              {item.description}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             </div>
             <label className="flex items-center gap-2 text-xs text-muted-foreground">

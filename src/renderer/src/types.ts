@@ -44,6 +44,31 @@ export interface ModelConfig {
 // New simplified provider configuration types
 export type SimpleProviderId = "ollama" | "openai-compatible"
 
+export interface DockerMount {
+  hostPath: string
+  containerPath: string
+  readOnly?: boolean
+}
+
+export interface DockerPort {
+  host: number
+  container: number
+  protocol?: "tcp" | "udp"
+}
+
+export interface DockerResources {
+  cpu?: number
+  memoryMb?: number
+}
+
+export interface DockerConfig {
+  enabled: boolean
+  image: string
+  mounts: DockerMount[]
+  resources?: DockerResources
+  ports?: DockerPort[]
+}
+
 export interface OllamaConfig {
   type: "ollama"
   url: string // e.g., "http://localhost:11434"
@@ -77,6 +102,35 @@ export interface SkillItem {
   description: string
   path: string
   source?: string
+}
+
+export interface ToolDefinition {
+  name: string
+  label: string
+  description: string
+  keyLabel?: string
+  envVar?: string
+}
+
+export interface ToolInfo extends ToolDefinition {
+  hasKey: boolean
+  enabled: boolean
+}
+
+export interface ToolKeyUpdateParams {
+  name: string
+  key: string | null
+}
+
+export interface ToolEnableUpdateParams {
+  name: string
+  enabled: boolean
+}
+
+export interface MiddlewareDefinition {
+  id: string
+  label: string
+  description?: string
 }
 
 // Subagent types (from deepagentsjs)

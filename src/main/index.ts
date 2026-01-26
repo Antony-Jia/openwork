@@ -5,6 +5,9 @@ import { registerThreadHandlers } from "./ipc/threads"
 import { registerModelHandlers } from "./ipc/models"
 import { registerSubagentHandlers } from "./ipc/subagents"
 import { registerSkillHandlers } from "./ipc/skills"
+import { registerToolHandlers } from "./ipc/tools"
+import { registerMiddlewareHandlers } from "./ipc/middleware"
+import { registerDockerHandlers } from "./ipc/docker"
 import { initializeDatabase } from "./db"
 
 let mainWindow: BrowserWindow | null = null
@@ -111,6 +114,9 @@ app.whenReady().then(async () => {
   registerModelHandlers(ipcMain)
   registerSubagentHandlers(ipcMain)
   registerSkillHandlers(ipcMain)
+  registerToolHandlers(ipcMain)
+  registerMiddlewareHandlers(ipcMain)
+  registerDockerHandlers(ipcMain)
 
   createWindow()
 

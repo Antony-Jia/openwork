@@ -6,7 +6,11 @@ import type {
   StreamEvent,
   HITLDecision,
   SubagentConfig,
-  SkillItem
+  SkillItem,
+  ToolInfo,
+  ToolKeyUpdateParams,
+  ToolEnableUpdateParams,
+  MiddlewareDefinition
 } from "../main/types"
 
 // Simple electron API - replaces @electron-toolkit/preload
@@ -173,10 +177,7 @@ const api = {
     create: (input: Omit<SubagentConfig, "id">): Promise<SubagentConfig> => {
       return ipcRenderer.invoke("subagents:create", input)
     },
-    update: (
-      id: string,
-      updates: Partial<Omit<SubagentConfig, "id">>
-    ): Promise<SubagentConfig> => {
+    update: (id: string, updates: Partial<Omit<SubagentConfig, "id">>): Promise<SubagentConfig> => {
       return ipcRenderer.invoke("subagents:update", { id, updates })
     },
     delete: (id: string): Promise<void> => {
@@ -187,7 +188,11 @@ const api = {
     list: (): Promise<SkillItem[]> => {
       return ipcRenderer.invoke("skills:list")
     },
-    create: (input: { name: string; description: string; content?: string }): Promise<SkillItem> => {
+    create: (input: {
+      name: string
+      description: string
+      content?: string
+    }): Promise<SkillItem> => {
       return ipcRenderer.invoke("skills:create", input)
     },
     install: (input: { path: string }): Promise<SkillItem> => {
@@ -201,6 +206,27 @@ const api = {
     },
     saveContent: (input: { name: string; content: string }): Promise<SkillItem> => {
       return ipcRenderer.invoke("skills:saveContent", input)
+    }
+  },
+  tools: {
+    list: (): Promise<ToolInfo[]> => {
+      return ipcRenderer.invoke("tools:list")
+    },
+    setKey: (input: ToolKeyUpdateParams): Promise<ToolInfo> => {
+      return ipcRenderer.invoke("tools:setKey", input)
+    },
+    setEnabled: (input: ToolEnableUpdateParams): Promise<ToolInfo> => {
+      return ipcRenderer.invoke("tools:setEnabled", input)
+    }
+  },
+  middleware: {
+    list: (): Promise<MiddlewareDefinition[]> => {
+      return ipcRenderer.invoke("middleware:list")
+    }
+  },
+  docker: {
+    check: (): Promise<{ available: boolean; error?: string }> => {
+      return ipcRenderer.invoke("docker:check")
     }
   },
   workspace: {
@@ -224,6 +250,11 @@ const api = {
         modified_at?: string
       }>
       workspacePath?: string
+      mounts?: Array<{
+        hostPath: string
+        containerPath: string
+        readOnly?: boolean
+      }>
       error?: string
     }> => {
       return ipcRenderer.invoke("workspace:loadFromDisk", { threadId })

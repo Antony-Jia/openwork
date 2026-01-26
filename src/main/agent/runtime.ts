@@ -6,6 +6,10 @@ import { SqlJsSaver } from "../checkpointer/sqljs-saver"
 import { LocalSandbox } from "./local-sandbox"
 import { listSubagents } from "../subagents"
 import { getSkillsRoot } from "../skills"
+import { getEnabledToolInstances, resolveToolInstancesByName } from "../tools/service"
+import { resolveMiddlewareById } from "../middleware/registry"
+import { createDockerTools } from "../tools/docker-tools"
+import type { DockerConfig } from "../types"
 
 import type * as _lcTypes from "langchain"
 import type * as _lcMessages from "@langchain/core/messages"
@@ -20,7 +24,7 @@ import { BASE_SYSTEM_PROMPT } from "./system-prompt"
  * @param workspacePath - The workspace path the agent is operating in
  * @returns The complete system prompt
  */
-function getSystemPrompt(workspacePath: string): string {
+function getSystemPrompt(workspacePath: string, dockerConfig?: DockerConfig): string {
   const workingDirSection = `
 ### File System and Paths
 
@@ -32,7 +36,26 @@ function getSystemPrompt(workspacePath: string): string {
 - Always use full absolute paths for all file operations
 `
 
-  return workingDirSection + BASE_SYSTEM_PROMPT
+  const dockerSection = dockerConfig?.enabled
+    ? `
+### Docker Mode
+
+- Use Docker tools for container operations: execute_bash, upload_file, download_file, edit_file, cat_file
+- Container working directory is /workspace
+- Local filesystem tools operate on the host, not inside the container
+`
+    : ""
+
+  return workingDirSection + dockerSection + BASE_SYSTEM_PROMPT
+}
+
+function normalizeDockerWorkspace(config: DockerConfig): string {
+  const mount = config.mounts?.[0]
+  if (mount?.containerPath) {
+    const normalized = mount.containerPath.replace(/\\/g, "/")
+    return normalized.startsWith("/") ? normalized : `/${normalized}`
+  }
+  return "/workspace"
 }
 
 // Per-thread checkpointer cache
@@ -158,19 +181,21 @@ export interface CreateAgentRuntimeOptions {
   modelId?: string
   /** Workspace path - REQUIRED for agent to operate on files */
   workspacePath: string
+  /** Optional docker configuration for container mode */
+  dockerConfig?: DockerConfig | null
 }
 
 // Create agent runtime with configured model and checkpointer
 export type AgentRuntime = ReturnType<typeof createDeepAgent>
 
 export async function createAgentRuntime(options: CreateAgentRuntimeOptions) {
-  const { threadId, modelId, workspacePath } = options
+  const { threadId, modelId, workspacePath, dockerConfig } = options
 
   if (!threadId) {
     throw new Error("Thread ID is required for checkpointing.")
   }
 
-  if (!workspacePath) {
+  if (!workspacePath && !dockerConfig?.enabled) {
     throw new Error(
       "Workspace path is required. Please select a workspace folder before running the agent."
     )
@@ -179,6 +204,9 @@ export async function createAgentRuntime(options: CreateAgentRuntimeOptions) {
   console.log("[Runtime] Creating agent runtime...")
   console.log("[Runtime] Thread ID:", threadId)
   console.log("[Runtime] Workspace path:", workspacePath)
+  if (dockerConfig?.enabled) {
+    console.log("[Runtime] Docker mode enabled with image:", dockerConfig.image)
+  }
 
   const model = getModelInstance(modelId)
   console.log("[Runtime] Model instance created:", typeof model)
@@ -187,19 +215,24 @@ export async function createAgentRuntime(options: CreateAgentRuntimeOptions) {
   console.log("[Runtime] Checkpointer ready for thread:", threadId)
 
   const backend = new LocalSandbox({
-    rootDir: workspacePath,
+    rootDir: workspacePath || process.cwd(),
     virtualMode: false, // Use absolute system paths for consistency with shell commands
     timeout: 120_000, // 2 minutes
     maxOutputBytes: 100_000 // ~100KB
   })
 
-  const systemPrompt = getSystemPrompt(workspacePath)
+  const effectiveWorkspace = dockerConfig?.enabled
+    ? normalizeDockerWorkspace(dockerConfig)
+    : workspacePath
+  const systemPrompt = getSystemPrompt(effectiveWorkspace, dockerConfig || undefined)
 
   const subagents = listSubagents().map((agent) => ({
     name: agent.name,
     description: agent.description,
     systemPrompt: agent.systemPrompt,
     model: agent.model,
+    tools: resolveToolInstancesByName(agent.tools),
+    middleware: resolveMiddlewareById(agent.middleware),
     interruptOn: agent.interruptOn ? { execute: true } : undefined
   }))
 
@@ -208,22 +241,25 @@ export async function createAgentRuntime(options: CreateAgentRuntimeOptions) {
   // Custom filesystem prompt for absolute paths (matches virtualMode: false)
   const filesystemSystemPrompt = `You have access to a filesystem. All file paths use fully qualified absolute system paths.
 
-- ls: list files in a directory (e.g., ls("${workspacePath}"))
+- ls: list files in a directory (e.g., ls("${effectiveWorkspace}"))
 - read_file: read a file from the filesystem
 - write_file: write to a file in the filesystem
 - edit_file: edit a file in the filesystem
 - glob: find files matching a pattern (e.g., "**/*.py")
 - grep: search for text within files
 
-The workspace root is: ${workspacePath}`
+The workspace root is: ${effectiveWorkspace}`
+
+  const dockerTools = dockerConfig?.enabled ? createDockerTools(dockerConfig) : []
 
   const agent = createDeepAgent({
     model,
     checkpointer,
     backend,
-    systemPrompt,
+    systemPrompt: systemPrompt + "\n\n" + filesystemSystemPrompt,
+    tools: [...getEnabledToolInstances(), ...dockerTools],
     // Custom filesystem prompt for absolute paths (requires deepagents update)
-    filesystemSystemPrompt,
+    // filesystemSystemPrompt,
     subagents,
     skills: [skillsRoot],
     // Require human approval for all shell commands

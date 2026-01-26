@@ -5,7 +5,11 @@ import type {
   StreamEvent,
   HITLDecision,
   SubagentConfig,
-  SkillItem
+  SkillItem,
+  ToolInfo,
+  ToolKeyUpdateParams,
+  ToolEnableUpdateParams,
+  MiddlewareDefinition
 } from "../main/types"
 
 interface ElectronAPI {
@@ -68,10 +72,7 @@ interface CustomAPI {
   subagents: {
     list: () => Promise<SubagentConfig[]>
     create: (input: Omit<SubagentConfig, "id">) => Promise<SubagentConfig>
-    update: (
-      id: string,
-      updates: Partial<Omit<SubagentConfig, "id">>
-    ) => Promise<SubagentConfig>
+    update: (id: string, updates: Partial<Omit<SubagentConfig, "id">>) => Promise<SubagentConfig>
     delete: (id: string) => Promise<void>
   }
   skills: {
@@ -81,6 +82,17 @@ interface CustomAPI {
     delete: (name: string) => Promise<void>
     getContent: (name: string) => Promise<string>
     saveContent: (input: { name: string; content: string }) => Promise<SkillItem>
+  }
+  tools: {
+    list: () => Promise<ToolInfo[]>
+    setKey: (input: ToolKeyUpdateParams) => Promise<ToolInfo>
+    setEnabled: (input: ToolEnableUpdateParams) => Promise<ToolInfo>
+  }
+  middleware: {
+    list: () => Promise<MiddlewareDefinition[]>
+  }
+  docker: {
+    check: () => Promise<{ available: boolean; error?: string }>
   }
   workspace: {
     get: (threadId?: string) => Promise<string | null>
@@ -95,6 +107,11 @@ interface CustomAPI {
         modified_at?: string
       }>
       workspacePath?: string
+      mounts?: Array<{
+        hostPath: string
+        containerPath: string
+        readOnly?: boolean
+      }>
       error?: string
     }>
     readFile: (

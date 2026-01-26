@@ -46,6 +46,7 @@ export function ChatContainer({ threadId }: ChatContainerProps): React.JSX.Eleme
     todos,
     error: threadError,
     workspacePath,
+    dockerEnabled,
     tokenUsage,
     currentModel,
     setTodos,
@@ -220,7 +221,7 @@ export function ChatContainer({ threadId }: ChatContainerProps): React.JSX.Eleme
     e.preventDefault()
     if (!input.trim() || isLoading || !stream) return
 
-    if (!workspacePath) {
+    if (!workspacePath && !dockerEnabled) {
       setError("Please select a workspace folder before sending messages.")
       return
     }
@@ -291,7 +292,7 @@ export function ChatContainer({ threadId }: ChatContainerProps): React.JSX.Eleme
   }
 
   return (
-    <div className="flex flex-col flex-1 min-h-0">
+    <div className={cn("flex flex-col flex-1 min-h-0", dockerEnabled && "docker-mode-ring")}>
       {/* Messages - scrollable area */}
       <div className="flex-1 overflow-y-auto min-h-0" ref={scrollRef}>
         <div className="p-4 pb-2">
@@ -303,6 +304,8 @@ export function ChatContainer({ threadId }: ChatContainerProps): React.JSX.Eleme
                 </div>
                 {workspacePath ? (
                   <div className="text-sm font-light">{t("chat.start_conversation")}</div>
+                ) : dockerEnabled ? (
+                  <div className="text-sm font-light">{t("chat.docker_ready")}</div>
                 ) : (
                   <div className="text-sm text-center space-y-4 max-w-xs">
                     <div className="bg-background-elevated p-4 rounded-lg border border-border/50 shadow-sm">
@@ -392,7 +395,7 @@ export function ChatContainer({ threadId }: ChatContainerProps): React.JSX.Eleme
             />
             <div className="flex items-center justify-between px-2 pb-1">
               <div className="flex items-center gap-2">
-                <WorkspacePicker threadId={threadId} />
+                {!dockerEnabled && <WorkspacePicker threadId={threadId} />}
               </div>
               <div className="flex items-center">
                 {isLoading ? (

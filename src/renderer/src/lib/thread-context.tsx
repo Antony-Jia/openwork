@@ -13,7 +13,7 @@ import {
 /* eslint-disable react-refresh/only-export-components */
 import { useStream } from "@langchain/langgraph-sdk/react"
 import { ElectronIPCTransport } from "./electron-transport"
-import type { Message, Todo, FileInfo, Subagent, HITLRequest } from "@/types"
+import type { Message, Todo, FileInfo, Subagent, HITLRequest, DockerConfig } from "@/types"
 import type { DeepAgent } from "../../../main/agent/types"
 
 // Open file tab type
@@ -46,6 +46,8 @@ export interface ThreadState {
   activeTab: "agent" | string
   fileContents: Record<string, string>
   tokenUsage: TokenUsage | null
+  dockerConfig: DockerConfig | null
+  dockerEnabled: boolean
 }
 
 // Stream instance type
@@ -65,6 +67,7 @@ export interface ThreadActions {
   setTodos: (todos: Todo[]) => void
   setWorkspaceFiles: (files: FileInfo[] | ((prev: FileInfo[]) => FileInfo[])) => void
   setWorkspacePath: (path: string | null) => void
+  setDockerConfig: (config: DockerConfig | null) => void
   setSubagents: (subagents: Subagent[]) => void
   setPendingApproval: (request: HITLRequest | null) => void
   setError: (error: string | null) => void
@@ -100,7 +103,9 @@ const createDefaultThreadState = (): ThreadState => ({
   openFiles: [],
   activeTab: "agent",
   fileContents: {},
-  tokenUsage: null
+  tokenUsage: null,
+  dockerConfig: null,
+  dockerEnabled: false
 })
 
 const defaultStreamData: StreamData = {
@@ -439,6 +444,12 @@ export function ThreadProvider({ children }: { children: ReactNode }) {
         setWorkspacePath: (path: string | null) => {
           updateThreadState(threadId, () => ({ workspacePath: path }))
         },
+        setDockerConfig: (config: DockerConfig | null) => {
+          updateThreadState(threadId, () => ({
+            dockerConfig: config,
+            dockerEnabled: !!config?.enabled
+          }))
+        },
         setSubagents: (subagents: Subagent[]) => {
           updateThreadState(threadId, () => ({ subagents }))
         },
@@ -521,6 +532,16 @@ export function ThreadProvider({ children }: { children: ReactNode }) {
             if (diskResult.success) {
               actions.setWorkspaceFiles(diskResult.files)
             }
+          }
+          const dockerMetadata = metadata.docker as DockerConfig | undefined
+          if (!metadata.workspacePath && dockerMetadata?.enabled) {
+            const diskResult = await window.api.workspace.loadFromDisk(threadId)
+            if (diskResult.success) {
+              actions.setWorkspaceFiles(diskResult.files)
+            }
+          }
+          if (metadata.docker) {
+            actions.setDockerConfig(metadata.docker as DockerConfig)
           }
           if (metadata.model) {
             // Update state directly to avoid triggering persistence in setCurrentModel

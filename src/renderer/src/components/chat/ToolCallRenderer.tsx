@@ -36,6 +36,10 @@ const TOOL_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
   glob: FolderOpen,
   grep: Search,
   execute: Terminal,
+  execute_bash: Terminal,
+  upload_file: Edit,
+  download_file: File,
+  cat_file: FileText,
   write_todos: ListTodo,
   task: GitBranch
 }
@@ -48,6 +52,10 @@ const TOOL_LABELS: Record<string, string> = {
   glob: "Find Files",
   grep: "Search Content",
   execute: "Execute Command",
+  execute_bash: "Execute in Docker",
+  upload_file: "Upload File",
+  download_file: "Download File",
+  cat_file: "Read File (Docker)",
   write_todos: "Update Tasks",
   task: "Subagent Task"
 }
@@ -356,7 +364,8 @@ export function ToolCallRenderer({
         return <FileEditSummary args={args} />
       }
 
-      case "execute": {
+      case "execute":
+      case "execute_bash": {
         const command = args.command as string
         const output = typeof result === "string" ? result : undefined
         return <CommandDisplay command={command} output={isExpanded ? output : undefined} />
@@ -456,7 +465,8 @@ export function ToolCallRenderer({
         return null
       }
 
-      case "execute": {
+      case "execute":
+      case "execute_bash": {
         // When expanded, output is shown in CommandDisplay - just show status
         // When collapsed, show the output preview
         const output = typeof result === "string" ? result : JSON.stringify(result)

@@ -542,6 +542,8 @@ function FilesContent(): React.JSX.Element {
   const threadState = useThreadState(currentThreadId)
   const workspaceFiles = threadState?.workspaceFiles ?? []
   const workspacePath = threadState?.workspacePath ?? null
+  const dockerEnabled = threadState?.dockerEnabled ?? false
+  const dockerConfig = threadState?.dockerConfig ?? null
   const setWorkspacePath = threadState?.setWorkspacePath
   const setWorkspaceFiles = threadState?.setWorkspaceFiles
   const [syncing, setSyncing] = useState(false)
@@ -553,6 +555,7 @@ function FilesContent(): React.JSX.Element {
   // ... (keep handle functions same)
   // Handle selecting a workspace folder
   async function handleSelectFolder(): Promise<void> {
+    if (dockerEnabled) return
     if (!currentThreadId || !setWorkspacePath || !setWorkspaceFiles) return
     setSyncing(true)
     try {
@@ -573,6 +576,7 @@ function FilesContent(): React.JSX.Element {
   }
 
   async function handleSyncToDisk(): Promise<void> {
+    if (dockerEnabled) return
     if (!currentThreadId) return
 
     // If no files, just select a folder
@@ -589,10 +593,17 @@ function FilesContent(): React.JSX.Element {
   useEffect(() => {
     async function loadWorkspace(): Promise<void> {
       if (currentThreadId && setWorkspacePath && setWorkspaceFiles) {
+        if (dockerEnabled) {
+          const result = await window.api.workspace.loadFromDisk(currentThreadId)
+          if (result.success && result.files) {
+            setWorkspaceFiles(result.files)
+          }
+          return
+        }
+
         const path = await window.api.workspace.get(currentThreadId)
         setWorkspacePath(path)
 
-        // If a folder is linked, load files from disk
         if (path) {
           const result = await window.api.workspace.loadFromDisk(currentThreadId)
           if (result.success && result.files) {
@@ -603,7 +614,7 @@ function FilesContent(): React.JSX.Element {
     }
     loadWorkspace()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentThreadId])
+  }, [currentThreadId, dockerEnabled])
 
   // Listen for file changes from the workspace watcher
   useEffect(() => {
@@ -630,43 +641,56 @@ function FilesContent(): React.JSX.Element {
       <div className="flex items-center justify-between px-3 py-2 border-b border-border/50 bg-background/30">
         <span
           className="text-[10px] text-muted-foreground truncate flex-1"
-          title={workspacePath || undefined}
-        >
-          {workspacePath ? workspacePath.split("/").pop() : "No folder linked"}
-        </span>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={workspaceFiles.length > 0 ? handleSyncToDisk : handleSelectFolder}
-          disabled={syncing || !currentThreadId}
-          className="h-5 px-1.5 text-[10px]"
           title={
-            workspaceFiles.length > 0
-              ? workspacePath
-                ? `Sync to ${workspacePath}`
-                : "Sync files to disk"
-              : workspacePath
-                ? `Change folder`
-                : "Link sync folder"
+            dockerEnabled
+              ? (dockerConfig?.mounts || [])
+                  .map((mount) => mount.containerPath)
+                  .filter(Boolean)
+                  .join(", ")
+              : workspacePath || undefined
           }
         >
-          {syncing ? (
-            <Loader2 className="size-3 animate-spin" />
-          ) : syncSuccess ? (
-            <Check className="size-3 text-status-nominal" />
-          ) : workspaceFiles.length > 0 ? (
-            <Download className="size-3" />
-          ) : (
-            <FolderSync className="size-3" />
-          )}
-          <span className="ml-1">
-            {workspaceFiles.length > 0
-              ? t("panel.sync_files")
-              : workspacePath
-                ? t("panel.change_folder")
-                : t("panel.link_folder")}
-          </span>
-        </Button>
+          {dockerEnabled
+            ? t("panel.docker_mounts")
+            : workspacePath
+              ? workspacePath.split("/").pop()
+              : "No folder linked"}
+        </span>
+        {!dockerEnabled && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={workspaceFiles.length > 0 ? handleSyncToDisk : handleSelectFolder}
+            disabled={syncing || !currentThreadId}
+            className="h-5 px-1.5 text-[10px]"
+            title={
+              workspaceFiles.length > 0
+                ? workspacePath
+                  ? `Sync to ${workspacePath}`
+                  : "Sync files to disk"
+                : workspacePath
+                  ? `Change folder`
+                  : "Link sync folder"
+            }
+          >
+            {syncing ? (
+              <Loader2 className="size-3 animate-spin" />
+            ) : syncSuccess ? (
+              <Check className="size-3 text-status-nominal" />
+            ) : workspaceFiles.length > 0 ? (
+              <Download className="size-3" />
+            ) : (
+              <FolderSync className="size-3" />
+            )}
+            <span className="ml-1">
+              {workspaceFiles.length > 0
+                ? t("panel.sync_files")
+                : workspacePath
+                  ? t("panel.change_folder")
+                  : t("panel.link_folder")}
+            </span>
+          </Button>
+        )}
       </div>
 
       {/* File tree or empty state */}
@@ -675,7 +699,11 @@ function FilesContent(): React.JSX.Element {
           <FolderTree className="size-8 mb-2 opacity-50" />
           <span>{t("panel.no_files")}</span>
           <span className="text-xs mt-1">
-            {workspacePath ? `Linked to ${workspacePath.split("/").pop()}` : t("panel.link_desc")}
+            {dockerEnabled
+              ? t("panel.docker_mounts_desc")
+              : workspacePath
+                ? `Linked to ${workspacePath.split("/").pop()}`
+                : t("panel.link_desc")}
           </span>
         </div>
       ) : (

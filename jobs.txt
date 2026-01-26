@@ -1,51 +1,15 @@
-参考
-1.https://docs.langchain.com/oss/python/deepagents/subagents
-2.https://docs.langchain.com/oss/python/deepagents/skills
+参考D:\Code\CodeAgent\backend\app\providers\docker_local.py，你现在建立一个非常复杂的功能。
 
-中的做法，在当前settings两侧增加两个按钮，一个是subagent（智能体管理），一个skills（技能管理），这两项都会在每次调用createAgentRuntime时加载
+你需要构建一个基于docker的虚拟执行方式，如果用户选择docker执行，你需要建立全新功能。
+你需要完成如下功能：
+1.在左上角增加一个容器选项。
+2.容器选项是检测本地是否有容器（目前仅仅针对windows），如果检测环境有，可以选择进行挂载，可以对资源（CPU\内存）、挂载路径、映射端口。
+3.提供对于容器的操作tools，包括：execute_bash、upload_file、download_file、edit_file、cat_file等
+4.一旦选择了docker机制，这时候在对话框外围亮起蓝色框框，表示进入docker模式。
+5.进入docker模式后，右侧的文件管理显示的是docker挂载管理的路径（注意可能有多个，请分别显示）
+6.选择了docker模式，docker相关操作的技能直接加入到createdeepagent，可以直接操作docker操作。
+7.选择docker模式下，也要更新prompt，填入到system_prompt，主要是指定docker的工作路径（/workspace）
 
-帮助制作如下工作：
-
-功能设计：
-
-（1）subagent功能：
-1.罗列现有的自定义subagent
-2.能够自定义创建agent，可以选择选填一些内容，添加创建时，弹出一个对话框。
-	选填的内容如下：
-	Deep Agents 的 subagents 参数接受两类对象：
-	字典式 SubAgent（最常见）
-	CompiledSubAgent（把一个已编译的 LangGraph 图当 subagent 用）
-
-	字典式 SubAgent 的必填字段：
-	name：唯一标识；主代理会用它来选择 subagent（通过 task() 调用）。
-	description：告诉主代理“它能做什么”，用于路由决策。
-	system_prompt：subagent 的系统指令（建议写清工具使用规则 + 输出格式）。
-	tools：subagent 可用的工具列表（强调“最小集合”）。
-
-	可选字段：
-	model：为该 subagent 单独换模型（支持 'provider:model-name' 格式）。
-	middleware：给该 subagent 叠加额外中间件（做日志、限流、额外状态等）。
-	interrupt_on：对子工具启用 Human-in-the-loop（需要 checkpointer）。
-
-	其中，只有name\description\system_prompt这三项可以用户填，model默认是当前接入的model，tools为下拉，默认为无，但是可以根据自身提供，目前暂无提供，未来会提供搜索、画图一类的，middleware也是下拉，但是可以根据自身提供，目前暂无提供，interrupt_on是勾选，默认勾选是无。
-	
-3.能够对subagent增删改。
-4.支持在createAgentRuntime每次加载，这个不用关心本次对话内容，每次都按照记忆中加载即可。暂不支持每个对话加载。
-
-（2）skills功能
-1.罗列现有的预置/自定义subagent，其中预置agent在运行目录中预置好。
-skills首先加载运行程序根路径下的的$CWD/.openwork/skills
-
-2.能够自定义创建skills，可以选择选填一些内容，添加创建时，弹出一个对话框。
-提供两种安装方式，第一种是指定路径，然后寻找路径下的SKILL.md，（以及SKILL.md所在的整个目录，还有一些其他的路径如
-my-skill/
-SKILL.md
-scripts/ （Optional: executable code）
-references/（Optional: documentation）
-assets/）
-都需要加载。
-
-3.能够对subagent增删改。
-4.支持在createAgentRuntime每次加载，这个不用关心本次对话内容，每次都按照记忆中加载即可。暂不支持每个对话加载。
-
-
+注意：
+1.所有的subagent、tools在现阶段都不要在docker中执行。（skills可以在他的skills.md中调用这个不用管）
+2.任务列表、智能体树也都和docker无关，就相当于执行了复杂的操作。

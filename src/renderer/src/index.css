@@ -439,6 +439,10 @@
   ); /* No blur on top, let content scroll behind? No, lets keep it clean */
 }
 
+.docker-mode-ring {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--status-info) 70%, transparent);
+}
+
 /* Glassmorphism Titlebar (Optional, using clean for now) */
 /* .app-titlebar {
   background: rgba(var(--background), 0.7);

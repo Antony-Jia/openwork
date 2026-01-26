@@ -58,8 +58,9 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
       console.log("[Agent] Thread metadata:", metadata)
 
       const workspacePath = metadata.workspacePath as string | undefined
+      const dockerConfig = metadata.docker
 
-      if (!workspacePath) {
+      if (!workspacePath && !dockerConfig?.enabled) {
         window.webContents.send(channel, {
           type: "error",
           error: "WORKSPACE_REQUIRED",
@@ -68,7 +69,12 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
         return
       }
 
-      const agent = await createAgentRuntime({ threadId, workspacePath, modelId })
+      const agent = await createAgentRuntime({
+        threadId,
+        workspacePath: workspacePath || "",
+        modelId,
+        dockerConfig
+      })
       const humanMessage = new HumanMessage(message)
 
       // Stream with both modes:
@@ -140,8 +146,9 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
     const thread = getThread(threadId)
     const metadata = thread?.metadata ? JSON.parse(thread.metadata) : {}
     const workspacePath = metadata.workspacePath as string | undefined
+    const dockerConfig = metadata.docker
 
-    if (!workspacePath) {
+    if (!workspacePath && !dockerConfig?.enabled) {
       window.webContents.send(channel, {
         type: "error",
         error: "Workspace path is required"
@@ -160,7 +167,12 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
     activeRuns.set(threadId, abortController)
 
     try {
-      const agent = await createAgentRuntime({ threadId, workspacePath, modelId })
+      const agent = await createAgentRuntime({
+        threadId,
+        workspacePath: workspacePath || "",
+        modelId,
+        dockerConfig
+      })
       const config = {
         configurable: { thread_id: threadId },
         signal: abortController.signal,
@@ -222,8 +234,9 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
     const metadata = thread?.metadata ? JSON.parse(thread.metadata) : {}
     const workspacePath = metadata.workspacePath as string | undefined
     const modelId = metadata.model as string | undefined
+    const dockerConfig = metadata.docker
 
-    if (!workspacePath) {
+    if (!workspacePath && !dockerConfig?.enabled) {
       window.webContents.send(channel, {
         type: "error",
         error: "Workspace path is required"
@@ -242,7 +255,12 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
     activeRuns.set(threadId, abortController)
 
     try {
-      const agent = await createAgentRuntime({ threadId, workspacePath, modelId })
+      const agent = await createAgentRuntime({
+        threadId,
+        workspacePath: workspacePath || "",
+        modelId,
+        dockerConfig
+      })
       const config = {
         configurable: { thread_id: threadId },
         signal: abortController.signal,
