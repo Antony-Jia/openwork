@@ -1,5 +1,6 @@
 // Re-export types from electron for use in renderer
 export type ThreadStatus = "idle" | "busy" | "interrupted" | "error"
+export type ThreadMode = "default" | "ralph" | "email"
 
 export interface Thread {
   thread_id: string
@@ -9,6 +10,11 @@ export interface Thread {
   status: ThreadStatus
   thread_values?: Record<string, unknown>
   title?: string
+}
+
+export interface RalphState {
+  phase: "init" | "awaiting_confirm" | "running" | "done"
+  iterations?: number
 }
 
 export type RunStatus = "pending" | "running" | "error" | "success" | "interrupted"
@@ -125,6 +131,40 @@ export interface ToolKeyUpdateParams {
 export interface ToolEnableUpdateParams {
   name: string
   enabled: boolean
+}
+
+// App settings
+export interface EmailSmtpConfig {
+  host: string
+  port: number
+  secure: boolean
+  user: string
+  pass: string
+}
+
+export interface EmailImapConfig {
+  host: string
+  port: number
+  secure: boolean
+  user: string
+  pass: string
+}
+
+export interface EmailSettings {
+  enabled: boolean
+  from: string
+  to: string[]
+  smtp: EmailSmtpConfig
+  imap: EmailImapConfig
+}
+
+export interface AppSettings {
+  ralphIterations: number
+  email: EmailSettings
+}
+
+export interface SettingsUpdateParams {
+  updates: Partial<AppSettings>
 }
 
 // MCP configuration

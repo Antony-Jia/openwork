@@ -4,7 +4,7 @@ import { useLanguage } from "@/lib/i18n"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import type { ProviderConfig, SimpleProviderId } from "@/types"
+import type { AppSettings, ProviderConfig, SimpleProviderId } from "@/types"
 
 interface SettingsMenuProps {
   threadId: string | null
@@ -23,6 +23,25 @@ export function SettingsMenu({ threadId: _threadId }: SettingsMenuProps): React.
   const [openaiModel, setOpenaiModel] = useState("")
   const [saved, setSaved] = useState(false)
   const [hasConfig, setHasConfig] = useState(false)
+  const [settingsSaved, setSettingsSaved] = useState(false)
+
+  // Ralph settings
+  const [ralphIterations, setRalphIterations] = useState("5")
+
+  // Email settings
+  const [emailEnabled, setEmailEnabled] = useState(false)
+  const [emailFrom, setEmailFrom] = useState("")
+  const [emailTo, setEmailTo] = useState("")
+  const [smtpHost, setSmtpHost] = useState("")
+  const [smtpPort, setSmtpPort] = useState("587")
+  const [smtpSecure, setSmtpSecure] = useState(false)
+  const [smtpUser, setSmtpUser] = useState("")
+  const [smtpPass, setSmtpPass] = useState("")
+  const [imapHost, setImapHost] = useState("")
+  const [imapPort, setImapPort] = useState("993")
+  const [imapSecure, setImapSecure] = useState(true)
+  const [imapUser, setImapUser] = useState("")
+  const [imapPass, setImapPass] = useState("")
 
   // Load current config on mount
   useEffect(() => {
@@ -40,6 +59,23 @@ export function SettingsMenu({ threadId: _threadId }: SettingsMenuProps): React.
             setOpenaiKey(config.apiKey)
             setOpenaiModel(config.model)
           }
+        }
+        const settings = (await window.api.settings.get()) as AppSettings
+        if (settings) {
+          setRalphIterations(String(settings.ralphIterations || 5))
+          setEmailEnabled(!!settings.email?.enabled)
+          setEmailFrom(settings.email?.from || "")
+          setEmailTo((settings.email?.to || []).join(", "))
+          setSmtpHost(settings.email?.smtp?.host || "")
+          setSmtpPort(String(settings.email?.smtp?.port || 587))
+          setSmtpSecure(!!settings.email?.smtp?.secure)
+          setSmtpUser(settings.email?.smtp?.user || "")
+          setSmtpPass(settings.email?.smtp?.pass || "")
+          setImapHost(settings.email?.imap?.host || "")
+          setImapPort(String(settings.email?.imap?.port || 993))
+          setImapSecure(settings.email?.imap?.secure ?? true)
+          setImapUser(settings.email?.imap?.user || "")
+          setImapPass(settings.email?.imap?.pass || "")
         }
       } catch (e) {
         console.error("Failed to load provider config:", e)
@@ -64,6 +100,63 @@ export function SettingsMenu({ threadId: _threadId }: SettingsMenuProps): React.
     }
   }, [providerType, ollamaUrl, ollamaModel, openaiUrl, openaiKey, openaiModel])
 
+  const handleSaveSettings = useCallback(async () => {
+    const iterationsValue = Number.parseInt(ralphIterations, 10)
+    const smtpPortValue = Number.parseInt(smtpPort, 10)
+    const imapPortValue = Number.parseInt(imapPort, 10)
+    const toList = emailTo
+      .split(/[,\n]/)
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+
+    try {
+      await window.api.settings.update({
+        updates: {
+          ralphIterations:
+            Number.isFinite(iterationsValue) && iterationsValue > 0 ? iterationsValue : 5,
+          email: {
+            enabled: emailEnabled,
+            from: emailFrom.trim(),
+            to: toList,
+            smtp: {
+              host: smtpHost.trim(),
+              port: Number.isFinite(smtpPortValue) ? smtpPortValue : 587,
+              secure: smtpSecure,
+              user: smtpUser.trim(),
+              pass: smtpPass
+            },
+            imap: {
+              host: imapHost.trim(),
+              port: Number.isFinite(imapPortValue) ? imapPortValue : 993,
+              secure: imapSecure,
+              user: imapUser.trim(),
+              pass: imapPass
+            }
+          }
+        }
+      })
+      setSettingsSaved(true)
+      setTimeout(() => setSettingsSaved(false), 2000)
+    } catch (e) {
+      console.error("Failed to save settings:", e)
+    }
+  }, [
+    ralphIterations,
+    emailEnabled,
+    emailFrom,
+    emailTo,
+    smtpHost,
+    smtpPort,
+    smtpSecure,
+    smtpUser,
+    smtpPass,
+    imapHost,
+    imapPort,
+    imapSecure,
+    imapUser,
+    imapPass
+  ])
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -83,7 +176,7 @@ export function SettingsMenu({ threadId: _threadId }: SettingsMenuProps): React.
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[380px] p-0 overflow-hidden border-border/80 bg-background/95 backdrop-blur"
+        className="w-[380px] p-0 border-border/80 bg-background/95 backdrop-blur max-h-[80vh] overflow-y-auto"
         align="start"
         sideOffset={10}
       >
@@ -267,6 +360,170 @@ export function SettingsMenu({ threadId: _threadId }: SettingsMenuProps): React.
             ) : (
               t("provider.save")
             )}
+          </Button>
+        </div>
+
+        {/* Ralph Configuration */}
+        <div className="px-3 py-2 border-b border-border/70">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+              {t("settings.ralph.title")}
+            </span>
+          </div>
+          <div>
+            <label className="text-[10px] text-muted-foreground block mb-1">
+              {t("settings.ralph.iterations")}
+            </label>
+            <input
+              type="number"
+              min={1}
+              value={ralphIterations}
+              onChange={(e) => setRalphIterations(e.target.value)}
+              className="w-full h-7 px-2 text-xs bg-muted/50 border border-border/50 rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </div>
+        </div>
+
+        {/* Email Configuration */}
+        <div className="px-3 py-2 border-b border-border/70 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+              {t("settings.email.title")}
+            </span>
+            {settingsSaved ? (
+              <span className="text-[10px] text-green-500">{t("settings.saved")}</span>
+            ) : null}
+          </div>
+
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={emailEnabled}
+              onChange={(e) => setEmailEnabled(e.target.checked)}
+            />
+            {t("settings.email.enabled")}
+          </label>
+
+          <div className="space-y-2">
+            <label className="text-[10px] text-muted-foreground block">
+              {t("settings.email.from")}
+            </label>
+            <input
+              type="text"
+              value={emailFrom}
+              onChange={(e) => setEmailFrom(e.target.value)}
+              placeholder="you@example.com"
+              className="w-full h-7 px-2 text-xs bg-muted/50 border border-border/50 rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] text-muted-foreground block">
+              {t("settings.email.to")}
+            </label>
+            <textarea
+              value={emailTo}
+              onChange={(e) => setEmailTo(e.target.value)}
+              placeholder="recipient@example.com"
+              className="w-full min-h-[70px] px-2 py-2 text-xs bg-muted/50 border border-border/50 rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+              {t("settings.email.smtp")}
+            </div>
+            <div className="space-y-2">
+              <input
+                type="text"
+                value={smtpHost}
+                onChange={(e) => setSmtpHost(e.target.value)}
+                placeholder="smtp.example.com"
+                className="w-full h-7 px-2 text-xs bg-muted/50 border border-border/50 rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  value={smtpPort}
+                  onChange={(e) => setSmtpPort(e.target.value)}
+                  placeholder="587"
+                  className="w-full h-7 px-2 text-xs bg-muted/50 border border-border/50 rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={smtpSecure}
+                    onChange={(e) => setSmtpSecure(e.target.checked)}
+                  />
+                  {t("settings.email.secure")}
+                </label>
+              </div>
+              <input
+                type="text"
+                value={smtpUser}
+                onChange={(e) => setSmtpUser(e.target.value)}
+                placeholder={t("settings.email.username")}
+                className="w-full h-7 px-2 text-xs bg-muted/50 border border-border/50 rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+              <input
+                type="password"
+                value={smtpPass}
+                onChange={(e) => setSmtpPass(e.target.value)}
+                placeholder={t("settings.email.password")}
+                className="w-full h-7 px-2 text-xs bg-muted/50 border border-border/50 rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+              {t("settings.email.imap")}
+            </div>
+            <div className="space-y-2">
+              <input
+                type="text"
+                value={imapHost}
+                onChange={(e) => setImapHost(e.target.value)}
+                placeholder="imap.example.com"
+                className="w-full h-7 px-2 text-xs bg-muted/50 border border-border/50 rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  value={imapPort}
+                  onChange={(e) => setImapPort(e.target.value)}
+                  placeholder="993"
+                  className="w-full h-7 px-2 text-xs bg-muted/50 border border-border/50 rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={imapSecure}
+                    onChange={(e) => setImapSecure(e.target.checked)}
+                  />
+                  {t("settings.email.secure")}
+                </label>
+              </div>
+              <input
+                type="text"
+                value={imapUser}
+                onChange={(e) => setImapUser(e.target.value)}
+                placeholder={t("settings.email.username")}
+                className="w-full h-7 px-2 text-xs bg-muted/50 border border-border/50 rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+              <input
+                type="password"
+                value={imapPass}
+                onChange={(e) => setImapPass(e.target.value)}
+                placeholder={t("settings.email.password")}
+                className="w-full h-7 px-2 text-xs bg-muted/50 border border-border/50 rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+            </div>
+          </div>
+
+          <Button size="sm" onClick={handleSaveSettings}>
+            <Check className={cn("size-3.5", settingsSaved ? "opacity-100" : "opacity-70")} />
+            {t("settings.save")}
           </Button>
         </div>
       </PopoverContent>

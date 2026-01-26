@@ -14,7 +14,9 @@ import type {
   McpServerCreateParams,
   McpServerListItem,
   McpServerStatus,
-  McpServerUpdateParams
+  McpServerUpdateParams,
+  AppSettings,
+  SettingsUpdateParams
 } from "../main/types"
 
 interface ElectronAPI {
@@ -98,6 +100,10 @@ interface CustomAPI {
   }
   docker: {
     check: () => Promise<{ available: boolean; error?: string }>
+  }
+  settings: {
+    get: () => Promise<AppSettings>
+    update: (input: SettingsUpdateParams) => Promise<AppSettings>
   }
   mcp: {
     list: () => Promise<McpServerListItem[]>

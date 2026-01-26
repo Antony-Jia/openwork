@@ -11,6 +11,7 @@ import { registerDockerHandlers } from "./ipc/docker"
 import { initializeDatabase } from "./db"
 import { registerMcpHandlers } from "./ipc/mcp"
 import { startAutoMcpServers } from "./mcp/service"
+import { registerSettingsHandlers } from "./ipc/settings"
 
 let mainWindow: BrowserWindow | null = null
 
@@ -120,6 +121,7 @@ app.whenReady().then(async () => {
   registerMiddlewareHandlers(ipcMain)
   registerDockerHandlers(ipcMain)
   registerMcpHandlers(ipcMain)
+  registerSettingsHandlers(ipcMain)
 
   await startAutoMcpServers()
 

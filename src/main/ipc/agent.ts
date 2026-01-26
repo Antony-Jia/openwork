@@ -1,17 +1,216 @@
 import { IpcMain, BrowserWindow } from "electron"
+import { appendFileSync, existsSync } from "node:fs"
+import { join } from "node:path"
 import { HumanMessage } from "@langchain/core/messages"
 import { Command } from "@langchain/langgraph"
-import { createAgentRuntime } from "../agent/runtime"
-import { getThread } from "../db"
+import { createAgentRuntime, closeCheckpointer } from "../agent/runtime"
+import { getThread, updateThread as dbUpdateThread } from "../db"
+import { deleteThreadCheckpoint } from "../storage"
+import { getSettings } from "../settings"
+import { fetchUnreadEmailTasks, markEmailTaskRead, sendEmail } from "../email/service"
 import type {
   AgentInvokeParams,
   AgentResumeParams,
   AgentInterruptParams,
-  AgentCancelParams
+  AgentCancelParams,
+  RalphState,
+  ThreadMode,
+  DockerConfig
 } from "../types"
 
 // Track active runs for cancellation
 const activeRuns = new Map<string, AbortController>()
+
+function parseMetadata(threadId: string): Record<string, unknown> {
+  const row = getThread(threadId)
+  return row?.metadata ? (JSON.parse(row.metadata) as Record<string, unknown>) : {}
+}
+
+function updateMetadata(threadId: string, updates: Record<string, unknown>): void {
+  const current = parseMetadata(threadId)
+  const next = {
+    ...current,
+    ...updates,
+    ralph: {
+      ...(current.ralph as Record<string, unknown> | undefined),
+      ...(updates.ralph as Record<string, unknown> | undefined)
+    }
+  }
+  dbUpdateThread(threadId, { metadata: JSON.stringify(next) })
+}
+
+async function resetRalphCheckpoint(threadId: string): Promise<void> {
+  await closeCheckpointer(threadId)
+  deleteThreadCheckpoint(threadId)
+}
+
+function appendProgressEntry(workspacePath: string, storyId = "INIT"): void {
+  const entry = [
+    `## [${new Date().toLocaleString()}] - ${storyId}`,
+    "- What was implemented",
+    "- Files changed",
+    "- **Learnings for future iterations:**",
+    "  - Patterns discovered (e.g., \"this codebase uses X for Y\")",
+    "  - Gotchas encountered (e.g., \"don't forget to update Z when changing W\")",
+    "  - Useful context (e.g., \"the evaluation panel is in component X\")",
+    "---",
+    ""
+  ].join("\n")
+
+  const progressPath = join(workspacePath, "progress.txt")
+  appendFileSync(progressPath, entry)
+}
+
+function extractContent(content: unknown): string {
+  if (typeof content === "string") return content
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        if (typeof part === "string") return part
+        if (typeof part === "object" && part) {
+          const record = part as Record<string, unknown>
+          if (typeof record.text === "string") return record.text
+          if (typeof record.content === "string") return record.content
+        }
+        return ""
+      })
+      .join("")
+  }
+  return ""
+}
+
+function extractAssistantChunkText(data: unknown): string | null {
+  const tuple = data as [unknown, unknown]
+  const msgChunk = tuple?.[0] as { id?: unknown; kwargs?: Record<string, unknown> } | undefined
+  const kwargs = msgChunk?.kwargs || {}
+  const classId = Array.isArray(msgChunk?.id) ? msgChunk?.id : []
+  const className = classId[classId.length - 1] || ""
+  if (!className.includes("AI")) {
+    return null
+  }
+  const content = extractContent(kwargs.content)
+  return content || null
+}
+
+function buildRalphInitPrompt(userMessage: string): string {
+  const example = [
+    "{",
+    '  "project": "MyApp",',
+    '  "branchName": "ralph/task-priority",',
+    '  "description": "Task Priority System - Add priority levels to tasks",',
+    '  "userStories": [',
+    "    {",
+    '      "id": "US-001",',
+    '      "title": "Add priority field to database",',
+    '      "description": "As a developer, I need to store task priority so it persists across sessions.",',
+    '      "acceptanceCriteria": [',
+    '        "Add priority column to tasks table: \'high\' | \'medium\' | \'low\' (default \'medium\')",',
+    '        "Generate and run migration successfully",',
+    '        "Typecheck passes"',
+    "      ],",
+    '      "priority": 1,',
+    '      "passes": false,',
+    '      "notes": ""',
+    "    },",
+    "    {",
+    '      "id": "US-002",',
+    '      "title": "Display priority indicator on task cards",',
+    '      "description": "As a user, I want to see task priority at a glance.",',
+    '      "acceptanceCriteria": [',
+    '        "Each task card shows colored priority badge (red=high, yellow=medium, gray=low)",',
+    '        "Priority visible without hovering or clicking",',
+    '        "Typecheck passes",',
+    '        "Verify in browser using dev-browser skill"',
+    "      ],",
+    '      "priority": 2,',
+    '      "passes": false,',
+    '      "notes": ""',
+    "    }",
+    "  ]",
+    "}"
+  ].join("\n")
+
+  return [
+    "Ralph mode initialization:",
+    "1) Confirm task details with the user.",
+    "2) Produce the JSON plan in the exact schema shown below.",
+    "3) Save the JSON to ralph_plan.json in the workspace.",
+    "4) Ask the user to reply with /confirm to start iterations.",
+    "",
+    "JSON schema example:",
+    example,
+    "",
+    "User request:",
+    userMessage.trim()
+  ].join("\n")
+}
+
+async function streamAgentRun({
+  threadId,
+  workspacePath,
+  modelId,
+  dockerConfig,
+  disableApprovals,
+  message,
+  window,
+  channel,
+  abortController
+}: {
+  threadId: string
+  workspacePath: string
+  modelId?: string
+  dockerConfig?: DockerConfig | null
+  disableApprovals?: boolean
+  message: string
+  window: BrowserWindow
+  channel: string
+  abortController: AbortController
+}): Promise<string> {
+  const agent = await createAgentRuntime({
+    threadId,
+    workspacePath,
+    modelId,
+    dockerConfig,
+    disableApprovals
+  })
+
+  const humanMessage = new HumanMessage(message)
+  const stream = await agent.stream(
+    { messages: [humanMessage] },
+    {
+      configurable: { thread_id: threadId },
+      signal: abortController.signal,
+      streamMode: ["messages", "values"],
+      recursionLimit: 1000
+    }
+  )
+
+  let lastAssistant = ""
+
+  for await (const chunk of stream) {
+    if (abortController.signal.aborted) break
+    const [mode, data] = chunk as [string, unknown]
+
+    if (mode === "messages") {
+      const content = extractAssistantChunkText(data)
+      if (content) {
+        if (content.startsWith(lastAssistant)) {
+          lastAssistant = content
+        } else {
+          lastAssistant += content
+        }
+      }
+    }
+
+    window.webContents.send(channel, {
+      type: "stream",
+      mode,
+      data: JSON.parse(JSON.stringify(data))
+    })
+  }
+
+  return lastAssistant.trim()
+}
 
 export function registerAgentHandlers(ipcMain: IpcMain): void {
   console.log("[Agent] Registering agent handlers...")
@@ -58,7 +257,7 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
       console.log("[Agent] Thread metadata:", metadata)
 
       const workspacePath = metadata.workspacePath as string | undefined
-      const dockerConfig = metadata.docker
+      const dockerConfig = metadata.docker as DockerConfig | undefined
 
       if (!workspacePath && !dockerConfig?.enabled) {
         window.webContents.send(channel, {
@@ -69,43 +268,229 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
         return
       }
 
-      const agent = await createAgentRuntime({
-        threadId,
-        workspacePath: workspacePath || "",
-        modelId,
-        dockerConfig
-      })
-      const humanMessage = new HumanMessage(message)
+      const mode = (metadata.mode as ThreadMode) || "default"
+      const settings = getSettings()
+      const normalizedWorkspace = workspacePath || ""
 
-      // Stream with both modes:
-      // - 'messages' for real-time token streaming
-      // - 'values' for full state (todos, files, etc.)
-      const stream = await agent.stream(
-        { messages: [humanMessage] },
-        {
-          configurable: { thread_id: threadId },
-          signal: abortController.signal,
-          streamMode: ["messages", "values"],
-          recursionLimit: 1000
+      if (mode === "ralph") {
+        const ralph = (metadata.ralph as RalphState) || { phase: "init", iterations: 0 }
+        const trimmed = message.trim()
+        const isConfirm = trimmed.toLowerCase() === "/confirm"
+
+        if (ralph.phase === "awaiting_confirm" && !isConfirm) {
+          await resetRalphCheckpoint(threadId)
+          const initPrompt = buildRalphInitPrompt(trimmed)
+
+          await streamAgentRun({
+            threadId,
+            workspacePath: normalizedWorkspace,
+            modelId,
+            dockerConfig,
+            disableApprovals: true,
+            message: initPrompt,
+            window,
+            channel,
+            abortController
+          })
+          updateMetadata(threadId, { ralph: { phase: "awaiting_confirm", iterations: 0 } })
+          if (!abortController.signal.aborted) {
+            window.webContents.send(channel, { type: "done" })
+          }
+          return
         }
-      )
 
-      for await (const chunk of stream) {
-        if (abortController.signal.aborted) break
+        if (ralph.phase === "awaiting_confirm" && isConfirm) {
+          const planPath = join(normalizedWorkspace, "ralph_plan.json")
+          if (!existsSync(planPath)) {
+            window.webContents.send(channel, {
+              type: "error",
+              error: "RALPH_PLAN_MISSING",
+              message: "Please generate ralph_plan.json before confirming iterations."
+            })
+            return
+          }
 
-        // With multiple stream modes, chunks are tuples: [mode, data]
-        const [mode, data] = chunk as [string, unknown]
+          appendProgressEntry(normalizedWorkspace)
+          updateMetadata(threadId, { ralph: { phase: "running", iterations: 0 } })
 
-        // Forward raw stream events - transport layer handles parsing
-        // Serialize to plain objects for IPC (class instances don't transfer)
-        window.webContents.send(channel, {
-          type: "stream",
-          mode,
-          data: JSON.parse(JSON.stringify(data))
-        })
+          const maxIterations = settings.ralphIterations || 5
+          for (let i = 1; i <= maxIterations; i += 1) {
+            if (abortController.signal.aborted) break
+            const doneFlag = join(normalizedWorkspace, ".ralph_done")
+            if (existsSync(doneFlag)) {
+              updateMetadata(threadId, { ralph: { phase: "done", iterations: i } })
+              break
+            }
+
+            await resetRalphCheckpoint(threadId)
+            const iterationPrompt = [
+              `Ralph iteration ${i}/${maxIterations}:`,
+              "- Read ralph_plan.json and progress.txt before making changes.",
+              "- Use the filesystem as the single source of truth.",
+              "- Implement the next highest-priority story.",
+              "- Append to progress.txt using the required template (never overwrite).",
+              "- If work is complete, create a .ralph_done file with a short summary."
+            ].join("\n")
+
+            await streamAgentRun({
+              threadId,
+              workspacePath: normalizedWorkspace,
+              modelId,
+              dockerConfig,
+              disableApprovals: true,
+              message: iterationPrompt,
+              window,
+              channel,
+              abortController
+            })
+            updateMetadata(threadId, { ralph: { iterations: i } })
+
+            if (existsSync(doneFlag)) {
+              updateMetadata(threadId, { ralph: { phase: "done", iterations: i } })
+              break
+            }
+          }
+
+          if (!abortController.signal.aborted) {
+            updateMetadata(threadId, { ralph: { phase: "done" } })
+          }
+
+          if (!abortController.signal.aborted) {
+            window.webContents.send(channel, { type: "done" })
+          }
+          return
+        }
+
+        if (ralph.phase === "running") {
+          window.webContents.send(channel, {
+            type: "error",
+            error: "RALPH_RUNNING",
+            message: "Ralph is already running. Please wait for completion."
+          })
+          return
+        }
+
+        if (ralph.phase === "done") {
+          updateMetadata(threadId, { ralph: { phase: "init", iterations: 0 } })
+        }
+
+        if (ralph.phase === "init" || ralph.phase === "done") {
+          await resetRalphCheckpoint(threadId)
+          const initPrompt = buildRalphInitPrompt(message)
+
+          await streamAgentRun({
+            threadId,
+            workspacePath: normalizedWorkspace,
+            modelId,
+            dockerConfig,
+            disableApprovals: true,
+            message: initPrompt,
+            window,
+            channel,
+            abortController
+          })
+          updateMetadata(threadId, { ralph: { phase: "awaiting_confirm", iterations: 0 } })
+          if (!abortController.signal.aborted) {
+            window.webContents.send(channel, { type: "done" })
+          }
+          return
+        }
       }
 
-      // Send done event (only if not aborted)
+      if (mode === "email") {
+        try {
+          await sendEmail({
+            subject: `<OpenworkTask> User Message - ${thread?.title || threadId}`,
+            text: message
+          })
+        } catch (emailError) {
+          console.warn("[Agent] Failed to send outgoing email:", emailError)
+        }
+
+        const summary = await streamAgentRun({
+          threadId,
+          workspacePath: normalizedWorkspace,
+          modelId,
+          dockerConfig,
+          message,
+          window,
+          channel,
+          abortController
+        })
+
+        const summaryText = summary || "Task completed. See Openwork for details."
+        try {
+          await sendEmail({
+            subject: `<OpenworkTask> Completed - ${thread?.title || threadId}`,
+            text: summaryText
+          })
+        } catch (emailError) {
+          console.warn("[Agent] Failed to send completion email:", emailError)
+        }
+
+        if (!abortController.signal.aborted) {
+          try {
+            const tasks = await fetchUnreadEmailTasks()
+            for (const task of tasks) {
+              if (abortController.signal.aborted) break
+              await resetRalphCheckpoint(threadId)
+              const taskPrompt = [
+                `Email task from ${task.from}:`,
+                `Subject: ${task.subject}`,
+                "",
+                task.text
+              ].join("\n")
+
+              const taskSummary = await streamAgentRun({
+                threadId,
+                workspacePath: normalizedWorkspace,
+                modelId,
+                dockerConfig,
+                message: taskPrompt,
+                window,
+                channel,
+                abortController
+              })
+
+              const taskSummaryText = taskSummary || "Task completed. See Openwork for details."
+              try {
+                await sendEmail({
+                  subject: `<OpenworkTask> Completed - ${task.subject}`,
+                  text: taskSummaryText
+                })
+              } catch (emailError) {
+                console.warn("[Agent] Failed to send task completion email:", emailError)
+                continue
+              }
+
+              try {
+                await markEmailTaskRead(task.id)
+              } catch (emailError) {
+                console.warn("[Agent] Failed to mark email task as read:", emailError)
+              }
+            }
+          } catch (emailError) {
+            console.warn("[Agent] Failed to fetch email tasks:", emailError)
+          }
+        }
+
+        if (!abortController.signal.aborted) {
+          window.webContents.send(channel, { type: "done" })
+        }
+        return
+      }
+
+      await streamAgentRun({
+        threadId,
+        workspacePath: normalizedWorkspace,
+        modelId,
+        dockerConfig,
+        message,
+        window,
+        channel,
+        abortController
+      })
+
       if (!abortController.signal.aborted) {
         window.webContents.send(channel, { type: "done" })
       }

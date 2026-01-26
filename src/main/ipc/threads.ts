@@ -47,7 +47,7 @@ export function registerThreadHandlers(ipcMain: IpcMain): void {
     const threadId = uuid()
     const title = (metadata?.title as string) || `Thread ${new Date().toLocaleDateString()}`
 
-    const thread = dbCreateThread(threadId, { ...metadata, title })
+    const thread = dbCreateThread(threadId, { mode: "default", ...metadata, title })
 
     return {
       thread_id: thread.thread_id,

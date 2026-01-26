@@ -66,7 +66,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   createThread: async (metadata?: Record<string, unknown>) => {
-    const thread = await window.api.threads.create(metadata)
+    const nextMetadata = metadata ?? { mode: "default" }
+    const thread = await window.api.threads.create(nextMetadata)
     set((state) => ({
       threads: [thread, ...state.threads],
       currentThreadId: thread.thread_id

@@ -184,13 +184,15 @@ export interface CreateAgentRuntimeOptions {
   workspacePath: string
   /** Optional docker configuration for container mode */
   dockerConfig?: DockerConfig | null
+  /** Disable human-in-the-loop approvals */
+  disableApprovals?: boolean
 }
 
 // Create agent runtime with configured model and checkpointer
 export type AgentRuntime = ReturnType<typeof createDeepAgent>
 
 export async function createAgentRuntime(options: CreateAgentRuntimeOptions) {
-  const { threadId, modelId, workspacePath, dockerConfig } = options
+  const { threadId, modelId, workspacePath, dockerConfig, disableApprovals } = options
 
   if (!threadId) {
     throw new Error("Thread ID is required for checkpointing.")
@@ -234,7 +236,7 @@ export async function createAgentRuntime(options: CreateAgentRuntimeOptions) {
     model: agent.model,
     tools: resolveToolInstancesByName(agent.tools),
     middleware: resolveMiddlewareById(agent.middleware),
-    interruptOn: agent.interruptOn ? { execute: true } : undefined
+    interruptOn: disableApprovals ? undefined : agent.interruptOn ? { execute: true } : undefined
   }))
 
   const skillsRoot = getSkillsRoot().replace(/\\/g, "/")
@@ -265,7 +267,7 @@ The workspace root is: ${effectiveWorkspace}`
     subagents,
     skills: [skillsRoot],
     // Require human approval for all shell commands
-    interruptOn: { execute: true }
+    interruptOn: disableApprovals ? undefined : { execute: true }
   } as Parameters<typeof createDeepAgent>[0])
 
   console.log("[Runtime] Deep agent created with LocalSandbox at:", workspacePath)

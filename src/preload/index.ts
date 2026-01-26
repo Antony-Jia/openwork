@@ -15,7 +15,9 @@ import type {
   McpServerCreateParams,
   McpServerListItem,
   McpServerStatus,
-  McpServerUpdateParams
+  McpServerUpdateParams,
+  AppSettings,
+  SettingsUpdateParams
 } from "../main/types"
 
 // Simple electron API - replaces @electron-toolkit/preload
@@ -232,6 +234,14 @@ const api = {
   docker: {
     check: (): Promise<{ available: boolean; error?: string }> => {
       return ipcRenderer.invoke("docker:check")
+    }
+  },
+  settings: {
+    get: (): Promise<AppSettings> => {
+      return ipcRenderer.invoke("settings:get")
+    },
+    update: (input: SettingsUpdateParams): Promise<AppSettings> => {
+      return ipcRenderer.invoke("settings:update", input)
     }
   },
   mcp: {
