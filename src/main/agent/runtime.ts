@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { createDeepAgent } from "deepagents"
-import { getThreadCheckpointPath, getProviderConfig } from "../storage"
+import { getThreadCheckpointPath } from "../storage"
+import { getProviderConfig } from "../provider-config"
 import { ChatOpenAI } from "@langchain/openai"
 import { SqlJsSaver } from "../checkpointer/sqljs-saver"
 import { LocalSandbox } from "./local-sandbox"

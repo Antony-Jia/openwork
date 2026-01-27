@@ -19,10 +19,9 @@ import {
   getApiKey,
   setApiKey,
   deleteApiKey,
-  hasApiKey,
-  getProviderConfig,
-  setProviderConfig
+  hasApiKey
 } from "../storage"
+import { getProviderConfig, setProviderConfig } from "../provider-config"
 
 // Store for non-sensitive settings only (no encryption needed)
 const store = new Store({

@@ -1,9 +1,5 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs"
-import { join } from "node:path"
-import { getOpenworkDir } from "./storage"
 import type { AppSettings } from "./types"
-
-const SETTINGS_FILE = join(getOpenworkDir(), "settings.json")
+import { getDb, markDbDirty } from "./db"
 
 const defaultSettings: AppSettings = {
   ralphIterations: 5,
@@ -28,13 +24,19 @@ const defaultSettings: AppSettings = {
   }
 }
 
-function readSettingsFile(): AppSettings {
-  if (!existsSync(SETTINGS_FILE)) {
+function readSettings(): AppSettings {
+  const database = getDb()
+  const stmt = database.prepare("SELECT data FROM app_settings WHERE id = 1")
+  const hasRow = stmt.step()
+  if (!hasRow) {
+    stmt.free()
     return defaultSettings
   }
+  const row = stmt.getAsObject() as { data?: string }
+  stmt.free()
+
   try {
-    const raw = readFileSync(SETTINGS_FILE, "utf-8")
-    const parsed = JSON.parse(raw) as AppSettings
+    const parsed = JSON.parse(row.data ?? "{}") as AppSettings
     return {
       ...defaultSettings,
       ...parsed,
@@ -56,18 +58,19 @@ function readSettingsFile(): AppSettings {
   }
 }
 
-function writeSettingsFile(settings: AppSettings): void {
-  getOpenworkDir()
+function writeSettings(settings: AppSettings): void {
+  const database = getDb()
   const data = JSON.stringify(settings, null, 2)
-  writeFileSync(SETTINGS_FILE, data)
+  database.run("INSERT OR REPLACE INTO app_settings (id, data) VALUES (1, ?)", [data])
+  markDbDirty()
 }
 
 export function getSettings(): AppSettings {
-  return readSettingsFile()
+  return readSettings()
 }
 
 export function updateSettings(updates: Partial<AppSettings>): AppSettings {
-  const current = readSettingsFile()
+  const current = readSettings()
   const next: AppSettings = {
     ...current,
     ...updates,
@@ -85,6 +88,6 @@ export function updateSettings(updates: Partial<AppSettings>): AppSettings {
     }
   }
 
-  writeSettingsFile(next)
+  writeSettings(next)
   return next
 }

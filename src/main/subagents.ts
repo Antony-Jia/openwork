@@ -1,38 +1,45 @@
 import { randomUUID } from "node:crypto"
-import { existsSync, readFileSync, writeFileSync } from "node:fs"
-import { join } from "node:path"
 import type { SubagentConfig } from "./types"
-import { getOpenworkDir } from "./storage"
 import { logEntry, logExit } from "./logging"
-
-const SUBAGENTS_FILE = join(getOpenworkDir(), "subagents.json")
+import { getDb, markDbDirty } from "./db"
 
 function appendCurrentTime(prompt: string): string {
   const now = new Date()
   return `${prompt}\n\nCurrent time: ${now.toISOString()}\nCurrent year: ${now.getFullYear()}`
 }
 
-function readSubagentsFile(): SubagentConfig[] {
-  if (!existsSync(SUBAGENTS_FILE)) {
-    return []
-  }
+function parseJson<T>(value: unknown): T | undefined {
+  if (typeof value !== "string" || !value) return undefined
   try {
-    const raw = readFileSync(SUBAGENTS_FILE, "utf-8")
-    const parsed = JSON.parse(raw) as SubagentConfig[]
-    return Array.isArray(parsed) ? parsed : []
+    return JSON.parse(value) as T
   } catch {
-    return []
+    return undefined
   }
-}
-
-function writeSubagentsFile(subagents: SubagentConfig[]): void {
-  const data = JSON.stringify(subagents, null, 2)
-  writeFileSync(SUBAGENTS_FILE, data)
 }
 
 export function listSubagents(): SubagentConfig[] {
   logEntry("Subagents", "list")
-  const result = readSubagentsFile()
+  const database = getDb()
+  const stmt = database.prepare("SELECT * FROM subagents")
+  const result: SubagentConfig[] = []
+  while (stmt.step()) {
+    const row = stmt.getAsObject() as Record<string, unknown>
+    result.push({
+      id: String(row.id),
+      name: String(row.name),
+      description: String(row.description),
+      systemPrompt: String(row.system_prompt),
+      model: (row.model as string | null) ?? undefined,
+      tools: parseJson<string[]>(row.tools),
+      middleware: parseJson<string[]>(row.middleware),
+      interruptOn:
+        row.interrupt_on === null || row.interrupt_on === undefined
+          ? undefined
+          : Boolean(row.interrupt_on),
+      enabled: row.enabled === null || row.enabled === undefined ? undefined : Boolean(row.enabled)
+    })
+  }
+  stmt.free()
   logExit("Subagents", "list", { count: result.length })
   return result
 }
@@ -49,7 +56,7 @@ export function createSubagent(input: Omit<SubagentConfig, "id">): SubagentConfi
     throw new Error("Subagent system prompt is required.")
   }
 
-  const subagents = readSubagentsFile()
+  const subagents = listSubagents()
   const nameExists = subagents.some(
     (agent) => agent.name.toLowerCase() === input.name.toLowerCase()
   )
@@ -69,7 +76,24 @@ export function createSubagent(input: Omit<SubagentConfig, "id">): SubagentConfi
     enabled: input.enabled ?? true
   }
 
-  writeSubagentsFile([...subagents, created])
+  const database = getDb()
+  database.run(
+    `INSERT OR REPLACE INTO subagents
+     (id, name, description, system_prompt, model, tools, middleware, interrupt_on, enabled)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      created.id,
+      created.name,
+      created.description,
+      created.systemPrompt,
+      created.model ?? null,
+      created.tools ? JSON.stringify(created.tools) : null,
+      created.middleware ? JSON.stringify(created.middleware) : null,
+      created.interruptOn === undefined ? null : created.interruptOn ? 1 : 0,
+      created.enabled === undefined ? null : created.enabled ? 1 : 0
+    ]
+  )
+  markDbDirty()
   logExit("Subagents", "create", { id: created.id, name: created.name })
   return created
 }
@@ -79,7 +103,7 @@ export function updateSubagent(
   updates: Partial<Omit<SubagentConfig, "id">>
 ): SubagentConfig {
   logEntry("Subagents", "update", { id, updates: Object.keys(updates || {}) })
-  const subagents = readSubagentsFile()
+  const subagents = listSubagents()
   const index = subagents.findIndex((agent) => agent.id === id)
   if (index < 0) {
     throw new Error("Subagent not found.")
@@ -108,16 +132,32 @@ export function updateSubagent(
         : appendCurrentTime(nextSystemPrompt ?? "")
   }
 
-  subagents[index] = updated
-  writeSubagentsFile(subagents)
+  const database = getDb()
+  database.run(
+    `INSERT OR REPLACE INTO subagents
+     (id, name, description, system_prompt, model, tools, middleware, interrupt_on, enabled)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      updated.id,
+      updated.name,
+      updated.description,
+      updated.systemPrompt,
+      updated.model ?? null,
+      updated.tools ? JSON.stringify(updated.tools) : null,
+      updated.middleware ? JSON.stringify(updated.middleware) : null,
+      updated.interruptOn === undefined ? null : updated.interruptOn ? 1 : 0,
+      updated.enabled === undefined ? null : updated.enabled ? 1 : 0
+    ]
+  )
+  markDbDirty()
   logExit("Subagents", "update", { id, name: updated.name })
   return updated
 }
 
 export function deleteSubagent(id: string): void {
   logEntry("Subagents", "delete", { id })
-  const subagents = readSubagentsFile()
-  const next = subagents.filter((agent) => agent.id !== id)
-  writeSubagentsFile(next)
+  const database = getDb()
+  database.run("DELETE FROM subagents WHERE id = ?", [id])
+  markDbDirty()
   logExit("Subagents", "delete", { id })
 }

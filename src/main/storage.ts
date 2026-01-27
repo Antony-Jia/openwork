@@ -1,11 +1,10 @@
 import { homedir } from "os"
 import { join } from "path"
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "fs"
-import type { ProviderId, ProviderConfig } from "./types"
+import type { ProviderId } from "./types"
 
 const OPENWORK_DIR = join(homedir(), ".openwork")
 const ENV_FILE = join(OPENWORK_DIR, ".env")
-const PROVIDER_CONFIG_FILE = join(OPENWORK_DIR, "provider-config.json")
 
 // Environment variable names for each provider
 const ENV_VAR_NAMES: Record<ProviderId, string> = {
@@ -127,26 +126,3 @@ export function hasApiKey(provider: string): boolean {
 // ============================================================================
 // New Provider Configuration Storage
 // ============================================================================
-
-export function getProviderConfig(): ProviderConfig | null {
-  getOpenworkDir() // ensure dir exists
-  if (!existsSync(PROVIDER_CONFIG_FILE)) return null
-
-  try {
-    const content = readFileSync(PROVIDER_CONFIG_FILE, "utf-8")
-    return JSON.parse(content) as ProviderConfig
-  } catch {
-    return null
-  }
-}
-
-export function setProviderConfig(config: ProviderConfig): void {
-  getOpenworkDir() // ensure dir exists
-  writeFileSync(PROVIDER_CONFIG_FILE, JSON.stringify(config, null, 2))
-}
-
-export function deleteProviderConfig(): void {
-  if (existsSync(PROVIDER_CONFIG_FILE)) {
-    unlinkSync(PROVIDER_CONFIG_FILE)
-  }
-}

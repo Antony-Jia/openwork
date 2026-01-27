@@ -1,8 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs"
-import { join } from "node:path"
-import { getOpenworkDir } from "../storage"
-
-const TOOLS_CONFIG_FILE = join(getOpenworkDir(), "tools.json")
+import { getDb, markDbDirty } from "../db"
 
 interface ToolConfigStore {
   [toolName: string]: {
@@ -12,22 +8,36 @@ interface ToolConfigStore {
 }
 
 function readToolsConfig(): ToolConfigStore {
-  if (!existsSync(TOOLS_CONFIG_FILE)) {
-    return {}
+  const database = getDb()
+  const stmt = database.prepare("SELECT name, enabled, key FROM tool_config")
+  const config: ToolConfigStore = {}
+  while (stmt.step()) {
+    const row = stmt.getAsObject() as { name?: string; enabled?: number | null; key?: string | null }
+    const name = row.name
+    if (!name) continue
+    const enabled =
+      row.enabled === null || row.enabled === undefined ? undefined : Boolean(row.enabled)
+    const key = row.key ?? undefined
+    config[name] = { enabled, key }
   }
-
-  try {
-    const raw = readFileSync(TOOLS_CONFIG_FILE, "utf-8")
-    const parsed = JSON.parse(raw) as ToolConfigStore
-    return typeof parsed === "object" && parsed ? parsed : {}
-  } catch {
-    return {}
-  }
+  stmt.free()
+  return config
 }
 
 function writeToolsConfig(config: ToolConfigStore): void {
-  const data = JSON.stringify(config, null, 2)
-  writeFileSync(TOOLS_CONFIG_FILE, data)
+  const database = getDb()
+  database.run("DELETE FROM tool_config")
+  for (const [name, entry] of Object.entries(config)) {
+    const enabled =
+      entry.enabled === undefined || entry.enabled === null ? null : entry.enabled ? 1 : 0
+    const key = entry.key ?? null
+    database.run("INSERT OR REPLACE INTO tool_config (name, enabled, key) VALUES (?, ?, ?)", [
+      name,
+      enabled,
+      key
+    ])
+  }
+  markDbDirty()
 }
 
 export function getStoredToolKey(toolName: string): string | undefined {
