@@ -49,15 +49,12 @@ export function registerSkillHandlers(ipcMain: IpcMain): void {
     return withSpan("IPC", "skills:getContent", { name }, async () => getSkillContent(name))
   })
 
-  ipcMain.handle(
-    "skills:saveContent",
-    async (_event, input: { name: string; content: string }) => {
-      return withSpan(
-        "IPC",
-        "skills:saveContent",
-        { name: input.name, contentLength: input.content.length },
-        async () => saveSkillContent(input.name, input.content)
-      )
-    }
-  )
+  ipcMain.handle("skills:saveContent", async (_event, input: { name: string; content: string }) => {
+    return withSpan(
+      "IPC",
+      "skills:saveContent",
+      { name: input.name, contentLength: input.content.length },
+      async () => saveSkillContent(input.name, input.content)
+    )
+  })
 }

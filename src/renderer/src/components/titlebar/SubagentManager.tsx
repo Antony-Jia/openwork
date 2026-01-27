@@ -299,7 +299,9 @@ export function SubagentManager(): React.JSX.Element {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs text-muted-foreground">{t("subagents.description")}</label>
+                  <label className="text-xs text-muted-foreground">
+                    {t("subagents.description")}
+                  </label>
                   <Input
                     value={form.description}
                     onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
@@ -417,8 +419,8 @@ export function SubagentManager(): React.JSX.Element {
                                   {!isEnabled
                                     ? t("mcp.disabled_hint")
                                     : server.status.running
-                                    ? `${server.status.toolsCount} ${t("mcp.tools_count")}`
-                                    : t("subagents.mcp_not_running")}
+                                      ? `${server.status.toolsCount} ${t("mcp.tools_count")}`
+                                      : t("subagents.mcp_not_running")}
                                 </span>
                               </div>
                             </div>
@@ -478,7 +480,9 @@ export function SubagentManager(): React.JSX.Element {
                   <input
                     type="checkbox"
                     checked={form.interruptOn}
-                    onChange={(e) => setForm((prev) => ({ ...prev, interruptOn: e.target.checked }))}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, interruptOn: e.target.checked }))
+                    }
                   />
                   {t("subagents.interrupt_on")}
                 </label>

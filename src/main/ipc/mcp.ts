@@ -21,11 +21,8 @@ export function registerMcpHandlers(ipcMain: IpcMain): void {
   })
 
   ipcMain.handle("mcp:create", async (_event, payload: McpServerCreateParams) => {
-    return withSpan(
-      "IPC",
-      "mcp:create",
-      { name: payload.name, mode: payload.mode },
-      async () => createMcpServer(payload)
+    return withSpan("IPC", "mcp:create", { name: payload.name, mode: payload.mode }, async () =>
+      createMcpServer(payload)
     )
   })
 

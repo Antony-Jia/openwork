@@ -30,8 +30,7 @@ export function listMcpConfigs(): McpServerConfig[] {
         row.auto_start === null || row.auto_start === undefined
           ? undefined
           : Boolean(row.auto_start),
-      enabled:
-        row.enabled === null || row.enabled === undefined ? undefined : Boolean(row.enabled)
+      enabled: row.enabled === null || row.enabled === undefined ? undefined : Boolean(row.enabled)
     })
   }
   stmt.free()

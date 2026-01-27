@@ -117,7 +117,6 @@ export async function fetchUnreadEmailTasks(threadId?: string): Promise<EmailTas
         from,
         text
       })
-
     }
   } finally {
     try {

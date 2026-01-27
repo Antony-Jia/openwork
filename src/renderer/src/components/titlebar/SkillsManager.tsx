@@ -42,8 +42,11 @@ export function SkillsManager(): React.JSX.Element {
 
   useEffect(() => {
     if (!open) return
-    loadSkills()
-  }, [open, loadSkills])
+    ;(async () => {
+      const items = await window.api.skills.list()
+      setSkills(items)
+    })()
+  }, [open])
 
   const resetForm = (): void => {
     setForm(emptyForm)
@@ -214,7 +217,9 @@ export function SkillsManager(): React.JSX.Element {
             ) : mode === "install" ? (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-xs text-muted-foreground">{t("skills.install_path")}</label>
+                  <label className="text-xs text-muted-foreground">
+                    {t("skills.install_path")}
+                  </label>
                   <Input
                     value={installPath}
                     onChange={(e) => setInstallPath(e.target.value)}

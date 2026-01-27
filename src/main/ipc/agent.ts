@@ -60,9 +60,9 @@ function appendProgressEntry(workspacePath: string, storyId = "INIT"): void {
     "- What was implemented",
     "- Files changed",
     "- **Learnings for future iterations:**",
-    "  - Patterns discovered (e.g., \"this codebase uses X for Y\")",
-    "  - Gotchas encountered (e.g., \"don't forget to update Z when changing W\")",
-    "  - Useful context (e.g., \"the evaluation panel is in component X\")",
+    '  - Patterns discovered (e.g., "this codebase uses X for Y")',
+    '  - Gotchas encountered (e.g., "don\'t forget to update Z when changing W")',
+    '  - Useful context (e.g., "the evaluation panel is in component X")',
     "---",
     ""
   ].join("\n")
@@ -114,7 +114,7 @@ function buildRalphInitPrompt(userMessage: string): string {
     '      "title": "Add priority field to database",',
     '      "description": "As a developer, I need to store task priority so it persists across sessions.",',
     '      "acceptanceCriteria": [',
-    '        "Add priority column to tasks table: \'high\' | \'medium\' | \'low\' (default \'medium\')",',
+    "        \"Add priority column to tasks table: 'high' | 'medium' | 'low' (default 'medium')\",",
     '        "Generate and run migration successfully",',
     '        "Typecheck passes"',
     "      ],",
@@ -410,10 +410,7 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
       if (mode === "email") {
         try {
           await sendEmail({
-            subject: buildEmailSubject(
-              threadId,
-              `User Message - ${thread?.title || threadId}`
-            ),
+            subject: buildEmailSubject(threadId, `User Message - ${thread?.title || threadId}`),
             text: message
           })
         } catch (emailError) {

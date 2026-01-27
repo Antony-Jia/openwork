@@ -56,10 +56,7 @@ export function summarizeArgs(args: Record<string, unknown> | null | undefined):
   return { keyCount: keys.length, keys: keys.slice(0, 10) }
 }
 
-export function summarizeList(
-  items: Array<string> | null | undefined,
-  max = 10
-): LogDetails {
+export function summarizeList(items: Array<string> | null | undefined, max = 10): LogDetails {
   const list = items ?? []
   return { count: list.length, names: list.slice(0, max) }
 }

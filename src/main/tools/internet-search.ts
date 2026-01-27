@@ -34,7 +34,12 @@ export const internetSearchTool = tool(
     })
     const apiKey = resolveToolKey(internetSearchDefinition.name, internetSearchDefinition.envVar)
     if (!apiKey) {
-      logExit("Tool", "internet_search", { ok: false, error: "missing_api_key" }, Date.now() - start)
+      logExit(
+        "Tool",
+        "internet_search",
+        { ok: false, error: "missing_api_key" },
+        Date.now() - start
+      )
       throw new Error("Tavily API key is not configured. Please set it in Tools or TAVILY_API_KEY.")
     }
 

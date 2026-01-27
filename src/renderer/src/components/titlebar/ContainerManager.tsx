@@ -97,6 +97,7 @@ export function ContainerManager({ threadId }: ContainerManagerProps): React.JSX
 
     refresh()
     loadConfig()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, threadId, canUseDocker])
 
   const handleSave = async (): Promise<void> => {
@@ -130,9 +131,7 @@ export function ContainerManager({ threadId }: ContainerManagerProps): React.JSX
   }
 
   const updateMount = (index: number, updates: Partial<DockerMount>): void => {
-    setMounts((prev) =>
-      prev.map((mount, i) => (i === index ? { ...mount, ...updates } : mount))
-    )
+    setMounts((prev) => prev.map((mount, i) => (i === index ? { ...mount, ...updates } : mount)))
   }
 
   const updatePort = (index: number, updates: Partial<DockerPort>): void => {
@@ -209,11 +208,7 @@ export function ContainerManager({ threadId }: ContainerManagerProps): React.JSX
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <label className="text-xs text-muted-foreground">{t("container.cpu")}</label>
-                  <Input
-                    value={cpu}
-                    onChange={(e) => setCpu(e.target.value)}
-                    disabled={!enabled}
-                  />
+                  <Input value={cpu} onChange={(e) => setCpu(e.target.value)} disabled={!enabled} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs text-muted-foreground">{t("container.memory")}</label>

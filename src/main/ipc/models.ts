@@ -14,13 +14,7 @@ import type {
   DockerMount
 } from "../types"
 import { startWatching, startWatchingPaths, stopWatching } from "../services/workspace-watcher"
-import {
-  getOpenworkDir,
-  getApiKey,
-  setApiKey,
-  deleteApiKey,
-  hasApiKey
-} from "../storage"
+import { getOpenworkDir, getApiKey, setApiKey, deleteApiKey, hasApiKey } from "../storage"
 import { getProviderConfig, setProviderConfig } from "../provider-config"
 
 // Store for non-sensitive settings only (no encryption needed)
@@ -227,7 +221,9 @@ function resolveDockerMount(
 ): { mount: DockerMount; relativePath: string } | null {
   const normalizedPath = normalizeContainerPath(containerPath)
   const sortedMounts = [...mounts].sort(
-    (a, b) => normalizeContainerPath(b.containerPath).length - normalizeContainerPath(a.containerPath).length
+    (a, b) =>
+      normalizeContainerPath(b.containerPath).length -
+      normalizeContainerPath(a.containerPath).length
   )
 
   for (const mount of sortedMounts) {
@@ -244,7 +240,11 @@ function resolveDockerMount(
 async function loadDockerFiles(mounts: DockerMount[]) {
   const files: Array<{ path: string; is_dir: boolean; size?: number; modified_at?: string }> = []
 
-  async function readDir(baseHostPath: string, containerRoot: string, relativePath = ""): Promise<void> {
+  async function readDir(
+    baseHostPath: string,
+    containerRoot: string,
+    relativePath = ""
+  ): Promise<void> {
     const entries = await fs.readdir(baseHostPath, { withFileTypes: true })
 
     for (const entry of entries) {

@@ -264,9 +264,10 @@ function migrateConfigFromJson(database: SqlJsDatabase): void {
   }
 
   if (!tableHasRows(database, "tool_config")) {
-    const tools = readLegacyJson<
-      Record<string, { key?: string | null; enabled?: boolean | null }>
-    >("tools.json")
+    const tools =
+      readLegacyJson<Record<string, { key?: string | null; enabled?: boolean | null }>>(
+        "tools.json"
+      )
     if (tools && typeof tools === "object") {
       for (const [name, entry] of Object.entries(tools)) {
         if (!name) continue

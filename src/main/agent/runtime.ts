@@ -7,7 +7,11 @@ import { SqlJsSaver } from "../checkpointer/sqljs-saver"
 import { LocalSandbox } from "./local-sandbox"
 import { listSubagents } from "../subagents"
 import { getSkillsRoot, listAppSkills } from "../skills"
-import { getEnabledToolInstances, getEnabledToolNames, resolveToolInstancesByName } from "../tools/service"
+import {
+  getEnabledToolInstances,
+  getEnabledToolNames,
+  resolveToolInstancesByName
+} from "../tools/service"
 import { getRunningMcpToolInstances, listRunningMcpTools } from "../mcp/service"
 import { resolveMiddlewareById } from "../middleware/registry"
 import { createDockerTools } from "../tools/docker-tools"
@@ -259,7 +263,11 @@ export async function createAgentRuntime(options: CreateAgentRuntimeOptions) {
         model: agent.model,
         tools: resolvedTools,
         middleware: resolveMiddlewareById(agent.middleware),
-        interruptOn: disableApprovals ? undefined : agent.interruptOn ? { execute: true } : undefined
+        interruptOn: disableApprovals
+          ? undefined
+          : agent.interruptOn
+            ? { execute: true }
+            : undefined
       }
     })
 

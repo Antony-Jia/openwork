@@ -31,9 +31,9 @@ export function getEnabledToolInstances() {
 }
 
 export function getEnabledToolNames(): string[] {
-  const names = toolDefinitions.filter((definition) => isToolEnabled(definition.name)).map(
-    (definition) => definition.name
-  )
+  const names = toolDefinitions
+    .filter((definition) => isToolEnabled(definition.name))
+    .map((definition) => definition.name)
   logExit("Tools", "getEnabledToolNames", summarizeList(names))
   return names
 }

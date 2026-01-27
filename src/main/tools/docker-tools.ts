@@ -18,7 +18,9 @@ function resolveDockerMount(
 ): { mount: DockerMount; relativePath: string } | null {
   const normalizedPath = normalizeContainerPath(containerPath)
   const sortedMounts = [...mounts].sort(
-    (a, b) => normalizeContainerPath(b.containerPath).length - normalizeContainerPath(a.containerPath).length
+    (a, b) =>
+      normalizeContainerPath(b.containerPath).length -
+      normalizeContainerPath(a.containerPath).length
   )
 
   for (const mount of sortedMounts) {
@@ -174,7 +176,8 @@ export function createDockerTools(config: DockerConfig) {
 
       const fullPath = path.join(match.mount.hostPath, match.relativePath)
       await fs.mkdir(path.dirname(fullPath), { recursive: true })
-      const data = encoding === "base64" ? Buffer.from(content, "base64") : Buffer.from(content, "utf-8")
+      const data =
+        encoding === "base64" ? Buffer.from(content, "base64") : Buffer.from(content, "utf-8")
       await fs.writeFile(fullPath, data)
       return { path: containerPath, bytes_written: data.length }
     },
@@ -221,13 +224,7 @@ export function createDockerTools(config: DockerConfig) {
   )
 
   const catFile = tool(
-    async ({
-      path: containerPath,
-      limitBytes
-    }: {
-      path: string
-      limitBytes?: number
-    }) => {
+    async ({ path: containerPath, limitBytes }: { path: string; limitBytes?: number }) => {
       const match = resolveDockerMount(config.mounts || [], containerPath)
       if (!match) {
         throw new Error("Access denied: path outside docker mounts.")

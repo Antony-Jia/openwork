@@ -139,12 +139,7 @@ function buildToolInstances(serverId: string, tools: McpToolDefinition[]): Array
             name: toolDef.name,
             arguments: args ?? {}
           })
-          logExit(
-            "MCP",
-            "toolCall",
-            { tool: toolName, serverId, ok: true },
-            Date.now() - start
-          )
+          logExit("MCP", "toolCall", { tool: toolName, serverId, ok: true }, Date.now() - start)
           return result
         } catch (error) {
           const message = error instanceof Error ? error.message : "unknown_error"
@@ -166,10 +161,7 @@ function buildToolInstances(serverId: string, tools: McpToolDefinition[]): Array
   })
 }
 
-function toMcpToolInfo(
-  server: McpServerConfig,
-  toolDef: McpToolDefinition
-): McpToolInfo {
+function toMcpToolInfo(server: McpServerConfig, toolDef: McpToolDefinition): McpToolInfo {
   const fullName = `mcp.${server.id}.${toolDef.name}`
   return {
     serverId: server.id,

@@ -12,7 +12,11 @@ function readToolsConfig(): ToolConfigStore {
   const stmt = database.prepare("SELECT name, enabled, key FROM tool_config")
   const config: ToolConfigStore = {}
   while (stmt.step()) {
-    const row = stmt.getAsObject() as { name?: string; enabled?: number | null; key?: string | null }
+    const row = stmt.getAsObject() as {
+      name?: string
+      enabled?: number | null
+      key?: string | null
+    }
     const name = row.name
     if (!name) continue
     const enabled =

@@ -260,81 +260,77 @@ export function McpManager(): React.JSX.Element {
                               : t("mcp.mode_remote")}
                           </div>
                           <div className="text-[10px] text-muted-foreground">
-                        {t("mcp.tools_count")}: {item.status.toolsCount}
-                      </div>
-                      {item.config.enabled === false && (
-                        <div className="text-[10px] text-muted-foreground">
-                          {t("mcp.disabled_hint")}
-                        </div>
-                      )}
-                      {item.status.lastError && (
-                        <div className="text-[10px] text-status-critical">
-                          {item.status.lastError}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleToggleEnabled(item.config.id, !(item.config.enabled ?? true))
-                          }
-                          className={cn(
-                            "text-[10px] uppercase tracking-[0.2em] transition-colors",
-                            item.config.enabled !== false
-                              ? "text-foreground"
-                              : "text-muted-foreground hover:text-foreground"
+                            {t("mcp.tools_count")}: {item.status.toolsCount}
+                          </div>
+                          {item.config.enabled === false && (
+                            <div className="text-[10px] text-muted-foreground">
+                              {t("mcp.disabled_hint")}
+                            </div>
                           )}
-                        >
-                          {item.config.enabled !== false
-                            ? t("tools.enabled")
-                            : t("tools.disabled")}
-                        </button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => startEdit(item)}
-                        >
-                          <Pencil className="size-3.5" />
-                          {t("mcp.edit")}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(item.config.id)}
-                        >
-                          <Trash2 className="size-3.5" />
-                          {t("mcp.delete")}
-                        </Button>
+                          {item.status.lastError && (
+                            <div className="text-[10px] text-status-critical">
+                              {item.status.lastError}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleToggleEnabled(item.config.id, !(item.config.enabled ?? true))
+                              }
+                              className={cn(
+                                "text-[10px] uppercase tracking-[0.2em] transition-colors",
+                                item.config.enabled !== false
+                                  ? "text-foreground"
+                                  : "text-muted-foreground hover:text-foreground"
+                              )}
+                            >
+                              {item.config.enabled !== false
+                                ? t("tools.enabled")
+                                : t("tools.disabled")}
+                            </button>
+                            <Button variant="ghost" size="sm" onClick={() => startEdit(item)}>
+                              <Pencil className="size-3.5" />
+                              {t("mcp.edit")}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDelete(item.config.id)}
+                            >
+                              <Trash2 className="size-3.5" />
+                              {t("mcp.delete")}
+                            </Button>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant={item.status.running ? "secondary" : "default"}
+                            onClick={() =>
+                              item.status.running
+                                ? handleStop(item.config.id)
+                                : handleStart(item.config.id)
+                            }
+                            disabled={busyId === item.config.id}
+                          >
+                            {item.status.running ? (
+                              <>
+                                <Square className="size-3.5" />
+                                {t("mcp.stop")}
+                              </>
+                            ) : (
+                              <>
+                                <Play className="size-3.5" />
+                                {t("mcp.start")}
+                              </>
+                            )}
+                          </Button>
+                        </div>
                       </div>
-                      <Button
-                        size="sm"
-                        variant={item.status.running ? "secondary" : "default"}
-                        onClick={() =>
-                          item.status.running
-                            ? handleStop(item.config.id)
-                            : handleStart(item.config.id)
-                        }
-                        disabled={busyId === item.config.id}
-                      >
-                        {item.status.running ? (
-                          <>
-                            <Square className="size-3.5" />
-                            {t("mcp.stop")}
-                          </>
-                        ) : (
-                          <>
-                            <Play className="size-3.5" />
-                            {t("mcp.start")}
-                          </>
-                        )}
-                      </Button>
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
+                )}
 
                 {error && <div className="text-xs text-status-critical">{error}</div>}
               </div>
