@@ -10,10 +10,9 @@ import type {
   WorkspaceSetParams,
   WorkspaceLoadParams,
   WorkspaceFileParams,
-  DockerConfig,
   DockerMount
 } from "../types"
-import { startWatching, startWatchingPaths, stopWatching } from "../services/workspace-watcher"
+import { startWatching, stopWatching } from "../services/workspace-watcher"
 import { getOpenworkDir, getApiKey, setApiKey, deleteApiKey, hasApiKey } from "../storage"
 import { getProviderConfig, setProviderConfig } from "../provider-config"
 
@@ -215,29 +214,7 @@ function normalizeContainerPath(input: string): string {
   return path.posix.normalize(withLeading)
 }
 
-function resolveDockerMount(
-  mounts: DockerMount[],
-  containerPath: string
-): { mount: DockerMount; relativePath: string } | null {
-  const normalizedPath = normalizeContainerPath(containerPath)
-  const sortedMounts = [...mounts].sort(
-    (a, b) =>
-      normalizeContainerPath(b.containerPath).length -
-      normalizeContainerPath(a.containerPath).length
-  )
-
-  for (const mount of sortedMounts) {
-    const mountPath = normalizeContainerPath(mount.containerPath)
-    if (normalizedPath === mountPath || normalizedPath.startsWith(`${mountPath}/`)) {
-      const relativePath = normalizedPath.slice(mountPath.length).replace(/^\/+/, "")
-      return { mount, relativePath }
-    }
-  }
-
-  return null
-}
-
-async function loadDockerFiles(mounts: DockerMount[]) {
+export async function loadDockerFiles(mounts: DockerMount[]) {
   const files: Array<{ path: string; is_dir: boolean; size?: number; modified_at?: string }> = []
 
   async function readDir(
@@ -275,22 +252,12 @@ async function loadDockerFiles(mounts: DockerMount[]) {
   }
 
   for (const mount of mounts) {
+    if (!mount.hostPath) continue
     const containerRoot = normalizeContainerPath(mount.containerPath || "/workspace")
     await readDir(mount.hostPath, containerRoot)
   }
 
   return files
-}
-
-async function getDockerConfig(threadId: string): Promise<DockerConfig | null> {
-  const { getThread } = await import("../db")
-  const thread = getThread(threadId)
-  const metadata = thread?.metadata ? JSON.parse(thread.metadata) : {}
-  const docker = metadata.docker as DockerConfig | undefined
-  if (docker?.enabled) {
-    return docker
-  }
-  return null
 }
 
 export function registerModelHandlers(ipcMain: IpcMain): void {
@@ -368,9 +335,6 @@ export function registerModelHandlers(ipcMain: IpcMain): void {
     if (!thread?.metadata) return null
 
     const metadata = JSON.parse(thread.metadata)
-    if (metadata.docker?.enabled) {
-      return null
-    }
     return metadata.workspacePath || null
   })
 
@@ -447,31 +411,7 @@ export function registerModelHandlers(ipcMain: IpcMain): void {
     // Get workspace path from thread metadata
     const thread = getThread(threadId)
     const metadata = thread?.metadata ? JSON.parse(thread.metadata) : {}
-    const dockerConfig = (metadata.docker as DockerConfig | undefined) || null
     const workspacePath = metadata.workspacePath as string | null
-
-    if (dockerConfig?.enabled) {
-      try {
-        const mounts = dockerConfig.mounts || []
-        const files = await loadDockerFiles(mounts)
-        const mountPaths = mounts.map((mount) => mount.hostPath).filter(Boolean)
-        if (mountPaths.length > 0) {
-          startWatchingPaths(threadId, mountPaths)
-        }
-        return {
-          success: true,
-          files,
-          workspacePath: mounts[0]?.containerPath || "/workspace",
-          mounts
-        }
-      } catch (e) {
-        return {
-          success: false,
-          error: e instanceof Error ? e.message : "Unknown error",
-          files: []
-        }
-      }
-    }
 
     if (!workspacePath) {
       return { success: false, error: "No workspace folder linked", files: [] }
@@ -539,35 +479,6 @@ export function registerModelHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(
     "workspace:readFile",
     async (_event, { threadId, filePath }: WorkspaceFileParams) => {
-      const dockerConfig = await getDockerConfig(threadId)
-      if (dockerConfig?.enabled) {
-        const match = resolveDockerMount(dockerConfig.mounts || [], filePath)
-        if (!match) {
-          return { success: false, error: "Access denied: path outside docker mounts" }
-        }
-
-        const fullPath = path.join(match.mount.hostPath, match.relativePath)
-        try {
-          const stat = await fs.stat(fullPath)
-          if (stat.isDirectory()) {
-            return { success: false, error: "Cannot read directory as file" }
-          }
-
-          const content = await fs.readFile(fullPath, "utf-8")
-          return {
-            success: true,
-            content,
-            size: stat.size,
-            modified_at: stat.mtime.toISOString()
-          }
-        } catch (e) {
-          return {
-            success: false,
-            error: e instanceof Error ? e.message : "Unknown error"
-          }
-        }
-      }
-
       const { getThread } = await import("../db")
 
       // Get workspace path from thread metadata
@@ -622,36 +533,6 @@ export function registerModelHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(
     "workspace:readBinaryFile",
     async (_event, { threadId, filePath }: WorkspaceFileParams) => {
-      const dockerConfig = await getDockerConfig(threadId)
-      if (dockerConfig?.enabled) {
-        const match = resolveDockerMount(dockerConfig.mounts || [], filePath)
-        if (!match) {
-          return { success: false, error: "Access denied: path outside docker mounts" }
-        }
-
-        const fullPath = path.join(match.mount.hostPath, match.relativePath)
-        try {
-          const stat = await fs.stat(fullPath)
-          if (stat.isDirectory()) {
-            return { success: false, error: "Cannot read directory as file" }
-          }
-
-          const buffer = await fs.readFile(fullPath)
-          const base64 = buffer.toString("base64")
-          return {
-            success: true,
-            content: base64,
-            size: stat.size,
-            modified_at: stat.mtime.toISOString()
-          }
-        } catch (e) {
-          return {
-            success: false,
-            error: e instanceof Error ? e.message : "Unknown error"
-          }
-        }
-      }
-
       const { getThread } = await import("../db")
 
       // Get workspace path from thread metadata

@@ -238,6 +238,30 @@ const api = {
   docker: {
     check: (): Promise<{ available: boolean; error?: string }> => {
       return ipcRenderer.invoke("docker:check")
+    },
+    getConfig: (): Promise<unknown> => {
+      return ipcRenderer.invoke("docker:getConfig")
+    },
+    setConfig: (config: unknown): Promise<unknown> => {
+      return ipcRenderer.invoke("docker:setConfig", config)
+    },
+    status: (): Promise<unknown> => {
+      return ipcRenderer.invoke("docker:status")
+    },
+    enter: (): Promise<unknown> => {
+      return ipcRenderer.invoke("docker:enter")
+    },
+    exit: (): Promise<unknown> => {
+      return ipcRenderer.invoke("docker:exit")
+    },
+    restart: (): Promise<unknown> => {
+      return ipcRenderer.invoke("docker:restart")
+    },
+    runtimeConfig: (): Promise<unknown> => {
+      return ipcRenderer.invoke("docker:runtimeConfig")
+    },
+    mountFiles: (): Promise<unknown> => {
+      return ipcRenderer.invoke("docker:mountFiles")
     }
   },
   settings: {

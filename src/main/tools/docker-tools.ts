@@ -90,36 +90,7 @@ async function runDockerCommand(
   })
 }
 
-function buildDockerRunBaseArgs(config: DockerConfig) {
-  const args: string[] = ["run", "--rm"]
-  const mounts = config.mounts || []
-
-  for (const mount of mounts) {
-    if (!mount.hostPath || !mount.containerPath) continue
-    const mountArg = `${mount.hostPath}:${normalizeContainerPath(mount.containerPath)}${
-      mount.readOnly ? ":ro" : ""
-    }`
-    args.push("-v", mountArg)
-  }
-
-  const resources = config.resources || {}
-  if (resources.cpu) {
-    args.push("--cpus", String(resources.cpu))
-  }
-  if (resources.memoryMb) {
-    args.push("--memory", `${resources.memoryMb}m`)
-  }
-
-  for (const port of config.ports || []) {
-    if (!port.host || !port.container) continue
-    const protocol = port.protocol || "tcp"
-    args.push("-p", `${port.host}:${port.container}/${protocol}`)
-  }
-
-  return args
-}
-
-export function createDockerTools(config: DockerConfig) {
+export function createDockerTools(config: DockerConfig, containerId: string | null) {
   const executeBash = tool(
     async ({
       command,
@@ -136,16 +107,25 @@ export function createDockerTools(config: DockerConfig) {
         return { stdout: "", stderr: "Error: command is required.", exitCode: 1, durationMs: 0 }
       }
 
-      const runArgs = buildDockerRunBaseArgs(config)
-      runArgs.push("-w", cwd ? normalizeContainerPath(cwd) : "/workspace")
+      if (!containerId) {
+        return {
+          stdout: "",
+          stderr: "Error: Docker container is not running.",
+          exitCode: 1,
+          durationMs: 0
+        }
+      }
+
+      const execArgs = ["exec"]
+      execArgs.push("-w", cwd ? normalizeContainerPath(cwd) : "/workspace")
       if (env) {
         Object.entries(env).forEach(([key, value]) => {
-          runArgs.push("-e", `${key}=${value}`)
+          execArgs.push("-e", `${key}=${value}`)
         })
       }
-      runArgs.push(config.image, "sh", "-c", command)
+      execArgs.push(containerId, "sh", "-c", command)
 
-      return runDockerCommand(runArgs, timeoutMs)
+      return runDockerCommand(execArgs, timeoutMs)
     },
     {
       name: "execute_bash",

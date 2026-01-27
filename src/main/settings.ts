@@ -21,6 +21,19 @@ const defaultSettings: AppSettings = {
       user: "",
       pass: ""
     }
+  },
+  dockerConfig: {
+    enabled: false,
+    image: "python:3.13-alpine",
+    mounts: [
+      {
+        hostPath: "",
+        containerPath: "/workspace",
+        readOnly: false
+      }
+    ],
+    resources: {},
+    ports: []
   }
 }
 
@@ -85,7 +98,8 @@ export function updateSettings(updates: Partial<AppSettings>): AppSettings {
         ...current.email.imap,
         ...(updates.email?.imap ?? {})
       }
-    }
+    },
+    dockerConfig: updates.dockerConfig ?? current.dockerConfig
   }
 
   writeSettings(next)

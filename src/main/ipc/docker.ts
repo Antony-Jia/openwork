@@ -1,5 +1,16 @@
 import { IpcMain } from "electron"
 import { spawn } from "node:child_process"
+import type { DockerConfig } from "../types"
+import {
+  enterDockerMode,
+  exitDockerMode,
+  getDockerConfig,
+  getDockerRuntimeConfig,
+  getDockerSessionStatus,
+  restartDockerMode,
+  setDockerConfig
+} from "../docker/session"
+import { loadDockerFiles } from "./models"
 
 function runDockerCheck(timeoutMs = 8000): Promise<{ available: boolean; error?: string }> {
   return new Promise((resolve) => {
@@ -46,5 +57,52 @@ function runDockerCheck(timeoutMs = 8000): Promise<{ available: boolean; error?:
 export function registerDockerHandlers(ipcMain: IpcMain): void {
   ipcMain.handle("docker:check", async () => {
     return runDockerCheck()
+  })
+
+  ipcMain.handle("docker:getConfig", async () => {
+    return getDockerConfig()
+  })
+
+  ipcMain.handle("docker:setConfig", async (_event, config: DockerConfig) => {
+    return setDockerConfig(config)
+  })
+
+  ipcMain.handle("docker:status", async () => {
+    return getDockerSessionStatus()
+  })
+
+  ipcMain.handle("docker:enter", async () => {
+    return enterDockerMode()
+  })
+
+  ipcMain.handle("docker:exit", async () => {
+    return exitDockerMode()
+  })
+
+  ipcMain.handle("docker:restart", async () => {
+    return restartDockerMode()
+  })
+
+  ipcMain.handle("docker:runtimeConfig", async () => {
+    return getDockerRuntimeConfig()
+  })
+
+  ipcMain.handle("docker:mountFiles", async () => {
+    const config = getDockerConfig()
+    try {
+      const mounts = config.mounts || []
+      const files = await loadDockerFiles(mounts)
+      return {
+        success: true,
+        files,
+        mounts
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+        files: []
+      }
+    }
   })
 }

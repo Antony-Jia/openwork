@@ -8,6 +8,7 @@ import { getThread, updateThread as dbUpdateThread } from "../db"
 import { deleteThreadCheckpoint } from "../storage"
 import { getSettings } from "../settings"
 import { fetchUnreadEmailTasks, markEmailTaskRead, sendEmail } from "../email/service"
+import { ensureDockerRunning, getDockerRuntimeConfig } from "../docker/session"
 import type {
   AgentInvokeParams,
   AgentResumeParams,
@@ -160,6 +161,7 @@ async function streamAgentRun({
   workspacePath,
   modelId,
   dockerConfig,
+  dockerContainerId,
   disableApprovals,
   message,
   window,
@@ -170,6 +172,7 @@ async function streamAgentRun({
   workspacePath: string
   modelId?: string
   dockerConfig?: DockerConfig | null
+  dockerContainerId?: string | null
   disableApprovals?: boolean
   message: string
   window: BrowserWindow
@@ -181,6 +184,7 @@ async function streamAgentRun({
     workspacePath,
     modelId,
     dockerConfig,
+    dockerContainerId,
     disableApprovals
   })
 
@@ -267,9 +271,12 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
       console.log("[Agent] Thread metadata:", metadata)
 
       const workspacePath = metadata.workspacePath as string | undefined
-      const dockerConfig = metadata.docker as DockerConfig | undefined
+      await ensureDockerRunning()
+      const dockerRuntime = getDockerRuntimeConfig()
+      const dockerConfig = dockerRuntime.config ?? undefined
+      const dockerContainerId = dockerRuntime.containerId ?? undefined
 
-      if (!workspacePath && !dockerConfig?.enabled) {
+      if (!workspacePath) {
         window.webContents.send(channel, {
           type: "error",
           error: "WORKSPACE_REQUIRED",
@@ -296,6 +303,7 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
             workspacePath: normalizedWorkspace,
             modelId,
             dockerConfig,
+            dockerContainerId,
             disableApprovals: true,
             message: initPrompt,
             window,
@@ -347,6 +355,7 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
               workspacePath: normalizedWorkspace,
               modelId,
               dockerConfig,
+              dockerContainerId,
               disableApprovals: true,
               message: iterationPrompt,
               window,
@@ -393,6 +402,7 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
             workspacePath: normalizedWorkspace,
             modelId,
             dockerConfig,
+            dockerContainerId,
             disableApprovals: true,
             message: initPrompt,
             window,
@@ -422,6 +432,7 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
           workspacePath: normalizedWorkspace,
           modelId,
           dockerConfig,
+          dockerContainerId,
           message,
           window,
           channel,
@@ -456,6 +467,7 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
                 workspacePath: normalizedWorkspace,
                 modelId,
                 dockerConfig,
+                dockerContainerId,
                 message: taskPrompt,
                 window,
                 channel,
@@ -499,6 +511,7 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
         workspacePath: normalizedWorkspace,
         modelId,
         dockerConfig,
+        dockerContainerId,
         message,
         window,
         channel,
@@ -545,9 +558,12 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
     const thread = getThread(threadId)
     const metadata = thread?.metadata ? JSON.parse(thread.metadata) : {}
     const workspacePath = metadata.workspacePath as string | undefined
-    const dockerConfig = metadata.docker
+    await ensureDockerRunning()
+    const dockerRuntime = getDockerRuntimeConfig()
+    const dockerConfig = dockerRuntime.config ?? undefined
+    const dockerContainerId = dockerRuntime.containerId ?? undefined
 
-    if (!workspacePath && !dockerConfig?.enabled) {
+    if (!workspacePath) {
       window.webContents.send(channel, {
         type: "error",
         error: "Workspace path is required"
@@ -570,7 +586,8 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
         threadId,
         workspacePath: workspacePath || "",
         modelId,
-        dockerConfig
+        dockerConfig,
+        dockerContainerId
       })
       const config = {
         configurable: { thread_id: threadId },
@@ -633,9 +650,12 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
     const metadata = thread?.metadata ? JSON.parse(thread.metadata) : {}
     const workspacePath = metadata.workspacePath as string | undefined
     const modelId = metadata.model as string | undefined
-    const dockerConfig = metadata.docker
+    await ensureDockerRunning()
+    const dockerRuntime = getDockerRuntimeConfig()
+    const dockerConfig = dockerRuntime.config ?? undefined
+    const dockerContainerId = dockerRuntime.containerId ?? undefined
 
-    if (!workspacePath && !dockerConfig?.enabled) {
+    if (!workspacePath) {
       window.webContents.send(channel, {
         type: "error",
         error: "Workspace path is required"
@@ -658,7 +678,8 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
         threadId,
         workspacePath: workspacePath || "",
         modelId,
-        dockerConfig
+        dockerConfig,
+        dockerContainerId
       })
       const config = {
         configurable: { thread_id: threadId },

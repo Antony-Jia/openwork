@@ -3,6 +3,7 @@ import {
   ListTodo,
   FolderTree,
   GitBranch,
+  Boxes,
   ChevronRight,
   ChevronDown,
   CheckCircle2,
@@ -26,14 +27,19 @@ import {
 import { cn } from "@/lib/utils"
 import { useAppStore } from "@/lib/store"
 import { useThreadState } from "@/lib/thread-context"
+import { useDockerState } from "@/lib/docker-state"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import type { Todo } from "@/types"
+import type { DockerMount, Todo } from "@/types"
 
 const HEADER_HEIGHT = 40 // px
 const HANDLE_HEIGHT = 6 // px
 const MIN_CONTENT_HEIGHT = 60 // px
 const COLLAPSE_THRESHOLD = 55 // px - auto-collapse when below this
+
+function getOpenCount(sections: Array<boolean>): number {
+  return sections.filter(Boolean).length
+}
 
 interface SectionHeaderProps {
   title: string
@@ -130,18 +136,27 @@ export function RightPanel(): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
 
   const { t } = useLanguage()
+  const { status: dockerStatus } = useDockerState()
+  const dockerEnabled = dockerStatus.enabled
 
   const [tasksOpen, setTasksOpen] = useState(true)
   const [filesOpen, setFilesOpen] = useState(true)
   const [agentsOpen, setAgentsOpen] = useState(true)
+  const [mountsOpen, setMountsOpen] = useState(true)
 
   // Store content heights in pixels (null = auto/equal distribution)
   const [tasksHeight, setTasksHeight] = useState<number | null>(null)
   const [filesHeight, setFilesHeight] = useState<number | null>(null)
   const [agentsHeight, setAgentsHeight] = useState<number | null>(null)
+  const [mountsHeight, setMountsHeight] = useState<number | null>(null)
 
   // Track drag start heights
-  const dragStartHeights = useRef<{ tasks: number; files: number; agents: number } | null>(null)
+  const dragStartHeights = useRef<{
+    tasks: number
+    files: number
+    agents: number
+    mounts: number
+  } | null>(null)
 
   // Calculate available content height
   const getAvailableContentHeight = useCallback(() => {
@@ -149,22 +164,32 @@ export function RightPanel(): React.JSX.Element {
     const totalHeight = containerRef.current.clientHeight
 
     // Subtract headers (always visible)
-    let used = HEADER_HEIGHT * 3
+    const headerCount = dockerEnabled ? 4 : 3
+    let used = HEADER_HEIGHT * headerCount
 
     // Subtract handles (only between open panels)
-    if (tasksOpen && (filesOpen || agentsOpen)) used += HANDLE_HEIGHT
-    if (filesOpen && agentsOpen) used += HANDLE_HEIGHT
+    const openSections = [tasksOpen, filesOpen, agentsOpen, dockerEnabled && mountsOpen].filter(
+      Boolean
+    ).length
+    if (openSections > 1) {
+      used += HANDLE_HEIGHT * (openSections - 1)
+    }
 
     return Math.max(0, totalHeight - used)
-  }, [tasksOpen, filesOpen, agentsOpen])
+  }, [tasksOpen, filesOpen, agentsOpen, mountsOpen, dockerEnabled])
 
   // Get current heights for each panel's content area
   const getContentHeights = useCallback(() => {
     const available = getAvailableContentHeight()
-    const openCount = [tasksOpen, filesOpen, agentsOpen].filter(Boolean).length
+    const openCount = getOpenCount([
+      tasksOpen,
+      filesOpen,
+      agentsOpen,
+      dockerEnabled && mountsOpen
+    ])
 
     if (openCount === 0) {
-      return { tasks: 0, files: 0, agents: 0 }
+      return { tasks: 0, files: 0, agents: 0, mounts: 0 }
     }
 
     const defaultHeight = available / openCount
@@ -172,7 +197,8 @@ export function RightPanel(): React.JSX.Element {
     return {
       tasks: tasksOpen ? (tasksHeight ?? defaultHeight) : 0,
       files: filesOpen ? (filesHeight ?? defaultHeight) : 0,
-      agents: agentsOpen ? (agentsHeight ?? defaultHeight) : 0
+      agents: agentsOpen ? (agentsHeight ?? defaultHeight) : 0,
+      mounts: dockerEnabled && mountsOpen ? (mountsHeight ?? defaultHeight) : 0
     }
   }, [
     getAvailableContentHeight,
@@ -181,7 +207,10 @@ export function RightPanel(): React.JSX.Element {
     agentsOpen,
     tasksHeight,
     filesHeight,
-    agentsHeight
+    agentsHeight,
+    mountsHeight,
+    mountsOpen,
+    dockerEnabled
   ])
 
   // Handle resize between tasks and the next open section
@@ -196,7 +225,7 @@ export function RightPanel(): React.JSX.Element {
       const available = getAvailableContentHeight()
 
       // Determine which panel is being resized against
-      const otherStart = filesOpen ? start.files : start.agents
+      const otherStart = filesOpen ? start.files : agentsOpen ? start.agents : start.mounts
 
       // Calculate new heights with proper clamping
       let newTasksHeight = start.tasks + totalDelta
@@ -213,8 +242,14 @@ export function RightPanel(): React.JSX.Element {
       }
 
       // Ensure total doesn't exceed available (accounting for third panel if open)
-      const thirdPanelHeight = filesOpen && agentsOpen ? (agentsHeight ?? available / 3) : 0
-      const maxForTwo = available - thirdPanelHeight
+      const remainingSections = [
+        filesOpen ? (agentsOpen ? agentsHeight : mountsOpen ? mountsHeight : 0) : 0,
+        filesOpen && agentsOpen && dockerEnabled && mountsOpen
+          ? mountsHeight ?? available / 4
+          : 0
+      ]
+      const remainingTotal = remainingSections.reduce((sum, h) => sum + (h ?? 0), 0)
+      const maxForTwo = available - remainingTotal
       if (newTasksHeight + newOtherHeight > maxForTwo) {
         const excess = newTasksHeight + newOtherHeight - maxForTwo
         if (totalDelta > 0) {
@@ -229,6 +264,8 @@ export function RightPanel(): React.JSX.Element {
         setFilesHeight(newOtherHeight)
       } else if (agentsOpen) {
         setAgentsHeight(newOtherHeight)
+      } else if (dockerEnabled && mountsOpen) {
+        setMountsHeight(newOtherHeight)
       }
 
       // Auto-collapse if below threshold
@@ -238,12 +275,22 @@ export function RightPanel(): React.JSX.Element {
       if (newOtherHeight < COLLAPSE_THRESHOLD) {
         if (filesOpen) setFilesOpen(false)
         else if (agentsOpen) setAgentsOpen(false)
+        else if (dockerEnabled && mountsOpen) setMountsOpen(false)
       }
     },
-    [getContentHeights, getAvailableContentHeight, filesOpen, agentsOpen, agentsHeight]
+    [
+      getContentHeights,
+      getAvailableContentHeight,
+      filesOpen,
+      agentsOpen,
+      agentsHeight,
+      mountsOpen,
+      mountsHeight,
+      dockerEnabled
+    ]
   )
 
-  // Handle resize between files and agents
+  // Handle resize between files and next open section
   const handleFilesResize = useCallback(
     (totalDelta: number) => {
       if (!dragStartHeights.current) {
@@ -253,45 +300,113 @@ export function RightPanel(): React.JSX.Element {
 
       const start = dragStartHeights.current
       const available = getAvailableContentHeight()
-      const tasksH = tasksOpen ? (tasksHeight ?? available / 3) : 0
-      const maxForFilesAndAgents = available - tasksH
+      const tasksH = tasksOpen ? (tasksHeight ?? available / 4) : 0
+      const maxForFilesAndNext = available - tasksH
 
       // Calculate new heights with proper clamping
       let newFilesHeight = start.files + totalDelta
-      let newAgentsHeight = start.agents - totalDelta
+      const nextStart = agentsOpen ? start.agents : start.mounts
+      let newNextHeight = nextStart - totalDelta
 
       // Clamp both to min height
       if (newFilesHeight < MIN_CONTENT_HEIGHT) {
         newFilesHeight = MIN_CONTENT_HEIGHT
-        newAgentsHeight = start.agents + (start.files - MIN_CONTENT_HEIGHT)
+        newNextHeight = nextStart + (start.files - MIN_CONTENT_HEIGHT)
       }
-      if (newAgentsHeight < MIN_CONTENT_HEIGHT) {
-        newAgentsHeight = MIN_CONTENT_HEIGHT
-        newFilesHeight = start.files + (start.agents - MIN_CONTENT_HEIGHT)
+      if (newNextHeight < MIN_CONTENT_HEIGHT) {
+        newNextHeight = MIN_CONTENT_HEIGHT
+        newFilesHeight = start.files + (nextStart - MIN_CONTENT_HEIGHT)
       }
 
       // Ensure total doesn't exceed available
-      if (newFilesHeight + newAgentsHeight > maxForFilesAndAgents) {
-        const excess = newFilesHeight + newAgentsHeight - maxForFilesAndAgents
+      if (newFilesHeight + newNextHeight > maxForFilesAndNext) {
+        const excess = newFilesHeight + newNextHeight - maxForFilesAndNext
         if (totalDelta > 0) {
-          newAgentsHeight = Math.max(MIN_CONTENT_HEIGHT, newAgentsHeight - excess)
+          newNextHeight = Math.max(MIN_CONTENT_HEIGHT, newNextHeight - excess)
         } else {
           newFilesHeight = Math.max(MIN_CONTENT_HEIGHT, newFilesHeight - excess)
         }
       }
 
       setFilesHeight(newFilesHeight)
-      setAgentsHeight(newAgentsHeight)
+      if (agentsOpen) {
+        setAgentsHeight(newNextHeight)
+      } else if (dockerEnabled && mountsOpen) {
+        setMountsHeight(newNextHeight)
+      }
 
       // Auto-collapse if below threshold
       if (newFilesHeight < COLLAPSE_THRESHOLD) {
         setFilesOpen(false)
       }
+      if (newNextHeight < COLLAPSE_THRESHOLD) {
+        if (agentsOpen) setAgentsOpen(false)
+        else if (dockerEnabled && mountsOpen) setMountsOpen(false)
+      }
+    },
+    [
+      getContentHeights,
+      getAvailableContentHeight,
+      tasksOpen,
+      tasksHeight,
+      agentsOpen,
+      mountsOpen,
+      dockerEnabled
+    ]
+  )
+
+  const handleAgentsResize = useCallback(
+    (totalDelta: number) => {
+      if (!dragStartHeights.current) {
+        const heights = getContentHeights()
+        dragStartHeights.current = { ...heights }
+      }
+
+      const start = dragStartHeights.current
+      const available = getAvailableContentHeight()
+      const tasksH = tasksOpen ? (tasksHeight ?? available / 4) : 0
+      const filesH = filesOpen ? (filesHeight ?? available / 4) : 0
+      const maxForAgentsAndMounts = available - tasksH - filesH
+
+      let newAgentsHeight = start.agents + totalDelta
+      let newMountsHeight = start.mounts - totalDelta
+
+      if (newAgentsHeight < MIN_CONTENT_HEIGHT) {
+        newAgentsHeight = MIN_CONTENT_HEIGHT
+        newMountsHeight = start.mounts + (start.agents - MIN_CONTENT_HEIGHT)
+      }
+      if (newMountsHeight < MIN_CONTENT_HEIGHT) {
+        newMountsHeight = MIN_CONTENT_HEIGHT
+        newAgentsHeight = start.agents + (start.mounts - MIN_CONTENT_HEIGHT)
+      }
+
+      if (newAgentsHeight + newMountsHeight > maxForAgentsAndMounts) {
+        const excess = newAgentsHeight + newMountsHeight - maxForAgentsAndMounts
+        if (totalDelta > 0) {
+          newMountsHeight = Math.max(MIN_CONTENT_HEIGHT, newMountsHeight - excess)
+        } else {
+          newAgentsHeight = Math.max(MIN_CONTENT_HEIGHT, newAgentsHeight - excess)
+        }
+      }
+
+      setAgentsHeight(newAgentsHeight)
+      setMountsHeight(newMountsHeight)
+
       if (newAgentsHeight < COLLAPSE_THRESHOLD) {
         setAgentsOpen(false)
       }
+      if (newMountsHeight < COLLAPSE_THRESHOLD) {
+        setMountsOpen(false)
+      }
     },
-    [getContentHeights, getAvailableContentHeight, tasksOpen, tasksHeight]
+    [
+      getContentHeights,
+      getAvailableContentHeight,
+      tasksOpen,
+      tasksHeight,
+      filesOpen,
+      filesHeight
+    ]
   )
 
   // Reset drag start on mouse up
@@ -308,10 +423,11 @@ export function RightPanel(): React.JSX.Element {
     setTasksHeight(null)
     setFilesHeight(null)
     setAgentsHeight(null)
-  }, [tasksOpen, filesOpen, agentsOpen])
+    setMountsHeight(null)
+  }, [tasksOpen, filesOpen, agentsOpen, mountsOpen, dockerEnabled])
 
   // Calculate heights in an effect (refs can't be accessed during render)
-  const [heights, setHeights] = useState({ tasks: 0, files: 0, agents: 0 })
+  const [heights, setHeights] = useState({ tasks: 0, files: 0, agents: 0, mounts: 0 })
   useEffect(() => {
     setHeights(getContentHeights())
   }, [getContentHeights])
@@ -338,7 +454,9 @@ export function RightPanel(): React.JSX.Element {
       </div>
 
       {/* Resize handle after TASKS */}
-      {tasksOpen && (filesOpen || agentsOpen) && <ResizeHandle onDrag={handleTasksResize} />}
+      {tasksOpen && (filesOpen || agentsOpen || (dockerEnabled && mountsOpen)) && (
+        <ResizeHandle onDrag={handleTasksResize} />
+      )}
 
       {/* FILES */}
       <div className="flex flex-col shrink-0 border-b border-border">
@@ -357,10 +475,12 @@ export function RightPanel(): React.JSX.Element {
       </div>
 
       {/* Resize handle after FILES */}
-      {filesOpen && agentsOpen && <ResizeHandle onDrag={handleFilesResize} />}
+      {filesOpen && (agentsOpen || (dockerEnabled && mountsOpen)) && (
+        <ResizeHandle onDrag={handleFilesResize} />
+      )}
 
       {/* AGENTS */}
-      <div className="flex flex-col shrink-0">
+      <div className="flex flex-col shrink-0 border-b border-border">
         <SectionHeader
           title={t("panel.agents")}
           icon={GitBranch}
@@ -374,6 +494,28 @@ export function RightPanel(): React.JSX.Element {
           </div>
         )}
       </div>
+
+      {/* Resize handle after AGENTS */}
+      {dockerEnabled && agentsOpen && mountsOpen && (
+        <ResizeHandle onDrag={handleAgentsResize} />
+      )}
+
+      {/* MOUNTS */}
+      {dockerEnabled && (
+        <div className="flex flex-col shrink-0">
+          <SectionHeader
+            title={t("panel.mounts")}
+            icon={Boxes}
+            isOpen={mountsOpen}
+            onToggle={() => setMountsOpen((prev) => !prev)}
+          />
+          {mountsOpen && (
+            <div className="overflow-auto" style={{ minHeight: heights.mounts }}>
+              <MountsContent />
+            </div>
+          )}
+        </div>
+      )}
     </aside>
   )
 }
@@ -542,20 +684,14 @@ function FilesContent(): React.JSX.Element {
   const threadState = useThreadState(currentThreadId)
   const workspaceFiles = threadState?.workspaceFiles ?? []
   const workspacePath = threadState?.workspacePath ?? null
-  const dockerEnabled = threadState?.dockerEnabled ?? false
-  const dockerConfig = threadState?.dockerConfig ?? null
   const setWorkspacePath = threadState?.setWorkspacePath
   const setWorkspaceFiles = threadState?.setWorkspaceFiles
   const [syncing, setSyncing] = useState(false)
   const [syncSuccess] = useState(false)
   const { t } = useLanguage()
 
-  // ... (keep useEffects logic same)
-
-  // ... (keep handle functions same)
   // Handle selecting a workspace folder
   async function handleSelectFolder(): Promise<void> {
-    if (dockerEnabled) return
     if (!currentThreadId || !setWorkspacePath || !setWorkspaceFiles) return
     setSyncing(true)
     try {
@@ -576,7 +712,6 @@ function FilesContent(): React.JSX.Element {
   }
 
   async function handleSyncToDisk(): Promise<void> {
-    if (dockerEnabled) return
     if (!currentThreadId) return
 
     // If no files, just select a folder
@@ -593,14 +728,6 @@ function FilesContent(): React.JSX.Element {
   useEffect(() => {
     async function loadWorkspace(): Promise<void> {
       if (currentThreadId && setWorkspacePath && setWorkspaceFiles) {
-        if (dockerEnabled) {
-          const result = await window.api.workspace.loadFromDisk(currentThreadId)
-          if (result.success && result.files) {
-            setWorkspaceFiles(result.files)
-          }
-          return
-        }
-
         const path = await window.api.workspace.get(currentThreadId)
         setWorkspacePath(path)
 
@@ -614,7 +741,7 @@ function FilesContent(): React.JSX.Element {
     }
     loadWorkspace()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentThreadId, dockerEnabled])
+  }, [currentThreadId])
 
   // Listen for file changes from the workspace watcher
   useEffect(() => {
@@ -641,22 +768,11 @@ function FilesContent(): React.JSX.Element {
       <div className="flex items-center justify-between px-3 py-2 border-b border-border/50 bg-background/30">
         <span
           className="text-[10px] text-muted-foreground truncate flex-1"
-          title={
-            dockerEnabled
-              ? (dockerConfig?.mounts || [])
-                  .map((mount) => mount.containerPath)
-                  .filter(Boolean)
-                  .join(", ")
-              : workspacePath || undefined
-          }
+          title={workspacePath || undefined}
         >
-          {dockerEnabled
-            ? t("panel.docker_mounts")
-            : workspacePath
-              ? workspacePath.split("/").pop()
-              : "No folder linked"}
+          {workspacePath ? workspacePath.split("/").pop() : "No folder linked"}
         </span>
-        {!dockerEnabled && (
+        {
           <Button
             variant="ghost"
             size="sm"
@@ -690,7 +806,7 @@ function FilesContent(): React.JSX.Element {
                   : t("panel.link_folder")}
             </span>
           </Button>
-        )}
+        }
       </div>
 
       {/* File tree or empty state */}
@@ -699,16 +815,89 @@ function FilesContent(): React.JSX.Element {
           <FolderTree className="size-8 mb-2 opacity-50" />
           <span>{t("panel.no_files")}</span>
           <span className="text-xs mt-1">
-            {dockerEnabled
-              ? t("panel.docker_mounts_desc")
-              : workspacePath
-                ? `Linked to ${workspacePath.split("/").pop()}`
-                : t("panel.link_desc")}
+            {workspacePath ? `Linked to ${workspacePath.split("/").pop()}` : t("panel.link_desc")}
           </span>
         </div>
       ) : (
         <div className="py-1 overflow-auto flex-1">
           <FileTree files={workspaceFiles} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MountsContent(): React.JSX.Element {
+  const [mountFiles, setMountFiles] = useState<FileInfo[]>([])
+  const [mounts, setMounts] = useState<DockerMount[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const { t } = useLanguage()
+
+  useEffect(() => {
+    let active = true
+    async function loadMounts(): Promise<void> {
+      if (!window.api?.docker?.mountFiles) return
+      setLoading(true)
+      setError(null)
+      try {
+        const result = await window.api.docker.mountFiles()
+        if (!active) return
+        if (result.success) {
+          setMountFiles(result.files || [])
+          setMounts((result.mounts as DockerMount[]) || [])
+        } else {
+          setMountFiles([])
+          setMounts([])
+          setError(result.error || "Failed to load mounts.")
+        }
+      } catch (err) {
+        if (!active) return
+        setMountFiles([])
+        setMounts([])
+        setError(err instanceof Error ? err.message : "Failed to load mounts.")
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    loadMounts()
+    const interval = window.setInterval(loadMounts, 5000)
+    return () => {
+      active = false
+      window.clearInterval(interval)
+    }
+  }, [])
+
+  const mountLabel =
+    mounts.length > 0
+      ? mounts.map((m) => m.containerPath).filter(Boolean).join(", ")
+      : t("panel.mounts_empty")
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border/50 bg-background/30">
+        <span className="text-[10px] text-muted-foreground truncate flex-1" title={mountLabel}>
+          {mountLabel}
+        </span>
+        {loading && <Loader2 className="size-3 animate-spin text-muted-foreground" />}
+      </div>
+
+      {error && (
+        <div className="px-3 py-2 text-xs text-status-critical border-b border-border/50">
+          {error}
+        </div>
+      )}
+
+      {mountFiles.length === 0 ? (
+        <div className="flex flex-col items-center justify-center text-center text-sm text-muted-foreground py-8 px-4 flex-1">
+          <FolderTree className="size-8 mb-2 opacity-50" />
+          <span>{t("panel.mounts_empty")}</span>
+          <span className="text-xs mt-1">{t("panel.mounts_desc")}</span>
+        </div>
+      ) : (
+        <div className="py-1 overflow-auto flex-1">
+          <FileTree files={mountFiles} allowOpen={false} />
         </div>
       )}
     </div>
@@ -806,7 +995,13 @@ function buildFileTree(files: FileInfo[]): TreeNode[] {
   return root
 }
 
-function FileTree({ files }: { files: FileInfo[] }): React.JSX.Element {
+function FileTree({
+  files,
+  allowOpen = true
+}: {
+  files: FileInfo[]
+  allowOpen?: boolean
+}): React.JSX.Element {
   const tree = useMemo(() => buildFileTree(files), [files])
   const [expanded, setExpanded] = useState<Set<string>>(() => {
     // Start with all directories expanded
@@ -838,6 +1033,7 @@ function FileTree({ files }: { files: FileInfo[] }): React.JSX.Element {
           depth={0}
           expanded={expanded}
           onToggle={toggleExpand}
+          allowOpen={allowOpen}
         />
       ))}
     </div>
@@ -848,12 +1044,14 @@ function FileTreeNode({
   node,
   depth,
   expanded,
-  onToggle
+  onToggle,
+  allowOpen
 }: {
   node: TreeNode
   depth: number
   expanded: Set<string>
   onToggle: (path: string) => void
+  allowOpen: boolean
 }): React.JSX.Element {
   const { currentThreadId } = useAppStore()
   const threadState = useThreadState(currentThreadId)
@@ -865,8 +1063,7 @@ function FileTreeNode({
   const handleClick = (): void => {
     if (node.is_dir) {
       onToggle(node.path)
-    } else if (openFile) {
-      // Open file in a new tab
+    } else if (allowOpen && openFile) {
       openFile(node.path, node.name)
     }
   }
@@ -918,6 +1115,7 @@ function FileTreeNode({
             depth={depth + 1}
             expanded={expanded}
             onToggle={onToggle}
+            allowOpen={allowOpen}
           />
         ))}
     </>

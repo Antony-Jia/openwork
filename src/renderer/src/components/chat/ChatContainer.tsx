@@ -11,6 +11,7 @@ import { ChatTodos } from "./ChatTodos"
 import { ContextUsageIndicator } from "./ContextUsageIndicator"
 import { cn } from "@/lib/utils"
 import { useLanguage } from "@/lib/i18n"
+import { useDockerState } from "@/lib/docker-state"
 import type { Message } from "@/types"
 
 interface AgentStreamValues {
@@ -46,7 +47,6 @@ export function ChatContainer({ threadId }: ChatContainerProps): React.JSX.Eleme
     todos,
     error: threadError,
     workspacePath,
-    dockerEnabled,
     tokenUsage,
     currentModel,
     setTodos,
@@ -57,6 +57,8 @@ export function ChatContainer({ threadId }: ChatContainerProps): React.JSX.Eleme
     setError,
     clearError
   } = useCurrentThread(threadId)
+  const { status: dockerStatus } = useDockerState()
+  const dockerEnabled = dockerStatus.enabled
 
   // Get the stream data via subscription - reactive updates without re-rendering provider
   const streamData = useThreadStream(threadId)
@@ -221,8 +223,12 @@ export function ChatContainer({ threadId }: ChatContainerProps): React.JSX.Eleme
     e.preventDefault()
     if (!input.trim() || isLoading || !stream) return
 
-    if (!workspacePath && !dockerEnabled) {
+    if (!workspacePath) {
       setError("Please select a workspace folder before sending messages.")
+      return
+    }
+    if (dockerEnabled && !dockerStatus.running) {
+      setError(t("chat.docker_not_running"))
       return
     }
 
@@ -304,8 +310,6 @@ export function ChatContainer({ threadId }: ChatContainerProps): React.JSX.Eleme
                 </div>
                 {workspacePath ? (
                   <div className="text-sm font-light">{t("chat.start_conversation")}</div>
-                ) : dockerEnabled ? (
-                  <div className="text-sm font-light">{t("chat.docker_ready")}</div>
                 ) : (
                   <div className="text-sm text-center space-y-4 max-w-xs">
                     <div className="bg-background-elevated p-4 rounded-lg border border-border/50 shadow-sm">
@@ -395,7 +399,7 @@ export function ChatContainer({ threadId }: ChatContainerProps): React.JSX.Eleme
             />
             <div className="flex items-center justify-between px-2 pb-1">
               <div className="flex items-center gap-2">
-                {!dockerEnabled && <WorkspacePicker threadId={threadId} />}
+                <WorkspacePicker threadId={threadId} />
               </div>
               <div className="flex items-center">
                 {isLoading ? (

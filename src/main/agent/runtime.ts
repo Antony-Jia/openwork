@@ -190,6 +190,8 @@ export interface CreateAgentRuntimeOptions {
   workspacePath: string
   /** Optional docker configuration for container mode */
   dockerConfig?: DockerConfig | null
+  /** Optional docker container ID for shared container mode */
+  dockerContainerId?: string | null
   /** Disable human-in-the-loop approvals */
   disableApprovals?: boolean
 }
@@ -198,13 +200,14 @@ export interface CreateAgentRuntimeOptions {
 export type AgentRuntime = ReturnType<typeof createDeepAgent>
 
 export async function createAgentRuntime(options: CreateAgentRuntimeOptions) {
-  const { threadId, modelId, workspacePath, dockerConfig, disableApprovals } = options
+  const { threadId, modelId, workspacePath, dockerConfig, dockerContainerId, disableApprovals } =
+    options
 
   if (!threadId) {
     throw new Error("Thread ID is required for checkpointing.")
   }
 
-  if (!workspacePath && !dockerConfig?.enabled) {
+  if (!workspacePath) {
     throw new Error(
       "Workspace path is required. Please select a workspace folder before running the agent."
     )
@@ -289,7 +292,8 @@ export async function createAgentRuntime(options: CreateAgentRuntimeOptions) {
 
 The workspace root is: ${effectiveWorkspace}`
 
-  const dockerTools = dockerConfig?.enabled ? createDockerTools(dockerConfig) : []
+  const dockerTools =
+    dockerConfig?.enabled ? createDockerTools(dockerConfig, dockerContainerId || null) : []
   const enabledToolNames = getEnabledToolNames()
   const mcpToolInfos = listRunningMcpTools()
   const mcpToolNames = mcpToolInfos.map((toolInfo) => toolInfo.fullName)

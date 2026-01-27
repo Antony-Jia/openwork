@@ -17,7 +17,9 @@ import type {
   McpServerUpdateParams,
   McpToolInfo,
   AppSettings,
-  SettingsUpdateParams
+  SettingsUpdateParams,
+  DockerConfig,
+  DockerSessionStatus
 } from "../main/types"
 
 interface ElectronAPI {
@@ -102,6 +104,28 @@ interface CustomAPI {
   }
   docker: {
     check: () => Promise<{ available: boolean; error?: string }>
+    getConfig: () => Promise<DockerConfig>
+    setConfig: (config: DockerConfig) => Promise<DockerConfig>
+    status: () => Promise<DockerSessionStatus>
+    enter: () => Promise<DockerSessionStatus>
+    exit: () => Promise<DockerSessionStatus>
+    restart: () => Promise<DockerSessionStatus>
+    runtimeConfig: () => Promise<{ config: DockerConfig | null; containerId: string | null }>
+    mountFiles: () => Promise<{
+      success: boolean
+      files: Array<{
+        path: string
+        is_dir: boolean
+        size?: number
+        modified_at?: string
+      }>
+      mounts?: Array<{
+        hostPath: string
+        containerPath: string
+        readOnly?: boolean
+      }>
+      error?: string
+    }>
   }
   settings: {
     get: () => Promise<AppSettings>

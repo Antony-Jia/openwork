@@ -97,6 +97,7 @@ const translations = {
     "chat.select_folder": "Select Folder",
     "chat.change_folder": "Change Folder",
     "chat.docker_ready": "Docker mode is ready. Send a message to start.",
+    "chat.docker_not_running": "Docker container is not running. Open Container settings to start it.",
 
     // Common
     "common.loading": "Loading...",
@@ -118,6 +119,9 @@ const translations = {
     "panel.link_desc": 'Click "Link" to set a sync folder',
     "panel.docker_mounts": "Docker mounts",
     "panel.docker_mounts_desc": "Files are shown from Docker mount paths",
+    "panel.mounts": "MOUNTS",
+    "panel.mounts_empty": "No mounts",
+    "panel.mounts_desc": "Files are shown from container mount paths",
 
     // Subagents
     "subagents.title": "SUBAGENTS",
@@ -146,7 +150,13 @@ const translations = {
     "container.status": "Docker status",
     "container.available": "Available",
     "container.unavailable": "Unavailable",
-    "container.enabled": "Docker mode",
+    "container.mode": "Docker mode",
+    "container.mode_on": "On",
+    "container.mode_off": "Off",
+    "container.enter": "Enter Docker Mode",
+    "container.exit": "Exit Docker Mode",
+    "container.restart": "Restart Container",
+    "container.running": "Running:",
     "container.image": "Image",
     "container.cpu": "CPU (cores)",
     "container.memory": "Memory (MB)",
@@ -161,7 +171,7 @@ const translations = {
     "container.port_container": "Container",
     "container.protocol": "Protocol",
     "container.save": "Save",
-    "container.disabled_hint": "Docker mode is off",
+    "container.edit_disabled": "Stop the container to edit configuration",
 
     // Skills
     "skills.title": "SKILLS",
@@ -324,6 +334,7 @@ const translations = {
     "chat.select_folder": "选择文件夹",
     "chat.change_folder": "更改文件夹",
     "chat.docker_ready": "Docker模式已就绪，可直接开始对话。",
+    "chat.docker_not_running": "Docker 容器未运行，请在容器设置中启动。",
 
     // Common
     "common.loading": "加载中...",
@@ -345,6 +356,9 @@ const translations = {
     "panel.link_desc": '点击"关联"设置同步文件夹',
     "panel.docker_mounts": "Docker挂载",
     "panel.docker_mounts_desc": "文件来自Docker挂载路径",
+    "panel.mounts": "容器挂载",
+    "panel.mounts_empty": "暂无挂载",
+    "panel.mounts_desc": "文件来自容器挂载路径",
 
     // Subagents
     "subagents.title": "智能体管理",
@@ -373,7 +387,13 @@ const translations = {
     "container.status": "Docker状态",
     "container.available": "可用",
     "container.unavailable": "不可用",
-    "container.enabled": "Docker模式",
+    "container.mode": "Docker模式",
+    "container.mode_on": "已开启",
+    "container.mode_off": "未开启",
+    "container.enter": "进入 Docker 模式",
+    "container.exit": "退出 Docker 模式",
+    "container.restart": "重启容器",
+    "container.running": "运行中：",
     "container.image": "镜像",
     "container.cpu": "CPU(核)",
     "container.memory": "内存(MB)",
@@ -388,7 +408,7 @@ const translations = {
     "container.port_container": "容器",
     "container.protocol": "协议",
     "container.save": "保存",
-    "container.disabled_hint": "Docker模式未开启",
+    "container.edit_disabled": "停止容器后可修改配置",
 
     // Skills
     "skills.title": "技能管理",

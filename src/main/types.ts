@@ -132,6 +132,14 @@ export interface DockerConfig {
   ports?: DockerPort[]
 }
 
+export interface DockerSessionStatus {
+  enabled: boolean
+  running: boolean
+  containerId?: string
+  containerName?: string
+  error?: string
+}
+
 export interface OllamaConfig {
   type: "ollama"
   url: string // e.g., "http://localhost:11434"
@@ -220,6 +228,7 @@ export interface EmailSettings {
 export interface AppSettings {
   ralphIterations: number
   email: EmailSettings
+  dockerConfig?: DockerConfig
 }
 
 export interface SettingsUpdateParams {

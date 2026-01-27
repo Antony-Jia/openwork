@@ -5,8 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { useLanguage } from "@/lib/i18n"
-import { useThreadState } from "@/lib/thread-context"
-import type { DockerConfig, DockerMount, DockerPort } from "@/types"
+import type { DockerConfig, DockerMount, DockerPort, DockerSessionStatus } from "@/types"
 
 interface ContainerManagerProps {
   threadId: string | null
@@ -26,15 +25,16 @@ const defaultConfig: DockerConfig = {
   ports: []
 }
 
-export function ContainerManager({ threadId }: ContainerManagerProps): React.JSX.Element {
+export function ContainerManager({ threadId: _threadId }: ContainerManagerProps): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const [available, setAvailable] = useState(false)
   const [statusError, setStatusError] = useState<string | null>(null)
   const [checking, setChecking] = useState(false)
   const { t } = useLanguage()
-  const threadState = useThreadState(threadId)
-
-  const [enabled, setEnabled] = useState(false)
+  const [sessionStatus, setSessionStatus] = useState<DockerSessionStatus>({
+    enabled: false,
+    running: false
+  })
   const [image, setImage] = useState(defaultConfig.image)
   const [cpu, setCpu] = useState("")
   const [memory, setMemory] = useState("")
@@ -83,31 +83,31 @@ export function ContainerManager({ threadId }: ContainerManagerProps): React.JSX
     }
 
     async function loadConfig(): Promise<void> {
-      if (!threadId) return
-      const thread = await window.api.threads.get(threadId)
-      const config = (thread?.metadata?.docker as DockerConfig | undefined) || defaultConfig
-      setEnabled(!!config.enabled)
+      const config = (await window.api.docker.getConfig()) as DockerConfig
       setImage(config.image || defaultConfig.image)
       setMounts(config.mounts?.length ? config.mounts : [defaultMount])
       setPorts(config.ports ?? [])
       setCpu(config.resources?.cpu ? String(config.resources.cpu) : "")
       setMemory(config.resources?.memoryMb ? String(config.resources.memoryMb) : "")
-      threadState?.setDockerConfig?.(config)
+    }
+
+    async function loadStatus(): Promise<void> {
+      const status = (await window.api.docker.status()) as DockerSessionStatus
+      setSessionStatus(status)
     }
 
     refresh()
     loadConfig()
+    loadStatus()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, threadId, canUseDocker])
+  }, [open, canUseDocker])
 
   const handleSave = async (): Promise<void> => {
-    if (!threadId) return
-
     const cpuValue = Number.parseFloat(cpu)
     const memoryValue = Number.parseInt(memory, 10)
 
     const nextConfig: DockerConfig = {
-      enabled,
+      enabled: false,
       image: image.trim() || defaultConfig.image,
       mounts: mounts.filter((m) => m.hostPath && m.containerPath),
       resources: {
@@ -117,17 +117,27 @@ export function ContainerManager({ threadId }: ContainerManagerProps): React.JSX
       ports: ports.filter((p) => p.host && p.container)
     }
 
-    const thread = await window.api.threads.get(threadId)
-    const metadata = thread?.metadata || {}
-    await window.api.threads.update(threadId, { metadata: { ...metadata, docker: nextConfig } })
-    threadState?.setDockerConfig?.(nextConfig)
-    if (nextConfig.enabled && threadState?.setWorkspaceFiles) {
-      const diskResult = await window.api.workspace.loadFromDisk(threadId)
-      if (diskResult.success) {
-        threadState.setWorkspaceFiles(diskResult.files)
-      }
-    }
+    await window.api.docker.setConfig(nextConfig)
+    window.dispatchEvent(new Event("docker:updated"))
     setOpen(false)
+  }
+
+  const handleEnter = async (): Promise<void> => {
+    const next = (await window.api.docker.enter()) as DockerSessionStatus
+    setSessionStatus(next)
+    window.dispatchEvent(new Event("docker:updated"))
+  }
+
+  const handleExit = async (): Promise<void> => {
+    const next = (await window.api.docker.exit()) as DockerSessionStatus
+    setSessionStatus(next)
+    window.dispatchEvent(new Event("docker:updated"))
+  }
+
+  const handleRestart = async (): Promise<void> => {
+    const next = (await window.api.docker.restart()) as DockerSessionStatus
+    setSessionStatus(next)
+    window.dispatchEvent(new Event("docker:updated"))
   }
 
   const updateMount = (index: number, updates: Partial<DockerMount>): void => {
@@ -185,37 +195,63 @@ export function ContainerManager({ threadId }: ContainerManagerProps): React.JSX
                 </span>
               </div>
               {statusError && <div className="text-xs text-status-critical">{statusError}</div>}
+              {sessionStatus.error && (
+                <div className="text-xs text-status-critical">{sessionStatus.error}</div>
+              )}
 
-              <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                <input
-                  type="checkbox"
-                  checked={enabled}
-                  disabled={!available}
-                  onChange={(e) => setEnabled(e.target.checked)}
-                />
-                {t("container.enabled")}
-              </label>
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>{t("container.mode")}</span>
+                <span className={cn(sessionStatus.enabled ? "text-status-info" : "")}>
+                  {sessionStatus.enabled ? t("container.mode_on") : t("container.mode_off")}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {!sessionStatus.enabled ? (
+                  <Button onClick={handleEnter} disabled={!available}>
+                    {t("container.enter")}
+                  </Button>
+                ) : (
+                  <>
+                    <Button variant="ghost" onClick={handleRestart} disabled={!available}>
+                      {t("container.restart")}
+                    </Button>
+                    <Button variant="secondary" onClick={handleExit} disabled={!available}>
+                      {t("container.exit")}
+                    </Button>
+                  </>
+                )}
+                {sessionStatus.containerId && (
+                  <span className="text-xs text-muted-foreground">
+                    {t("container.running")} {sessionStatus.containerId.slice(0, 12)}
+                  </span>
+                )}
+              </div>
 
               <div className="space-y-2">
                 <label className="text-xs text-muted-foreground">{t("container.image")}</label>
                 <Input
                   value={image}
                   onChange={(e) => setImage(e.target.value)}
-                  disabled={!enabled}
+                  disabled={sessionStatus.running}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <label className="text-xs text-muted-foreground">{t("container.cpu")}</label>
-                  <Input value={cpu} onChange={(e) => setCpu(e.target.value)} disabled={!enabled} />
+                  <Input
+                    value={cpu}
+                    onChange={(e) => setCpu(e.target.value)}
+                    disabled={sessionStatus.running}
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs text-muted-foreground">{t("container.memory")}</label>
                   <Input
                     value={memory}
                     onChange={(e) => setMemory(e.target.value)}
-                    disabled={!enabled}
+                    disabled={sessionStatus.running}
                   />
                 </div>
               </div>
@@ -227,7 +263,7 @@ export function ContainerManager({ threadId }: ContainerManagerProps): React.JSX
                     variant="ghost"
                     size="sm"
                     onClick={() => setMounts((prev) => [...prev, { ...defaultMount }])}
-                    disabled={!enabled}
+                    disabled={sessionStatus.running}
                   >
                     <Plus className="size-3.5" />
                     {t("container.add_mount")}
@@ -240,21 +276,21 @@ export function ContainerManager({ threadId }: ContainerManagerProps): React.JSX
                       value={mount.hostPath}
                       onChange={(e) => updateMount(index, { hostPath: e.target.value })}
                       placeholder={t("container.host_path")}
-                      disabled={!enabled}
+                      disabled={sessionStatus.running}
                     />
                     <Input
                       className="col-span-4"
                       value={mount.containerPath}
                       onChange={(e) => updateMount(index, { containerPath: e.target.value })}
                       placeholder={t("container.container_path")}
-                      disabled={!enabled}
+                      disabled={sessionStatus.running}
                     />
                     <label className="col-span-2 flex items-center gap-2 text-xs text-muted-foreground">
                       <input
                         type="checkbox"
                         checked={!!mount.readOnly}
                         onChange={(e) => updateMount(index, { readOnly: e.target.checked })}
-                        disabled={!enabled}
+                        disabled={sessionStatus.running}
                       />
                       {t("container.read_only")}
                     </label>
@@ -263,7 +299,7 @@ export function ContainerManager({ threadId }: ContainerManagerProps): React.JSX
                       size="icon-sm"
                       className="col-span-1"
                       onClick={() => removeMount(index)}
-                      disabled={!enabled}
+                      disabled={sessionStatus.running}
                     >
                       <Trash2 className="size-3.5" />
                     </Button>
@@ -280,7 +316,7 @@ export function ContainerManager({ threadId }: ContainerManagerProps): React.JSX
                     onClick={() =>
                       setPorts((prev) => [...prev, { host: 0, container: 0, protocol: "tcp" }])
                     }
-                    disabled={!enabled}
+                    disabled={sessionStatus.running}
                   >
                     <Plus className="size-3.5" />
                     {t("container.add_port")}
@@ -296,7 +332,7 @@ export function ContainerManager({ threadId }: ContainerManagerProps): React.JSX
                       value={port.host ? String(port.host) : ""}
                       onChange={(e) => updatePort(index, { host: Number(e.target.value) || 0 })}
                       placeholder={t("container.port_host")}
-                      disabled={!enabled}
+                      disabled={sessionStatus.running}
                     />
                     <Input
                       className="col-span-3"
@@ -305,7 +341,7 @@ export function ContainerManager({ threadId }: ContainerManagerProps): React.JSX
                         updatePort(index, { container: Number(e.target.value) || 0 })
                       }
                       placeholder={t("container.port_container")}
-                      disabled={!enabled}
+                      disabled={sessionStatus.running}
                     />
                     <select
                       className="col-span-4 h-9 rounded-md border border-input bg-background px-2 text-xs"
@@ -313,7 +349,7 @@ export function ContainerManager({ threadId }: ContainerManagerProps): React.JSX
                       onChange={(e) =>
                         updatePort(index, { protocol: e.target.value as "tcp" | "udp" })
                       }
-                      disabled={!enabled}
+                      disabled={sessionStatus.running}
                     >
                       <option value="tcp">{t("container.protocol")} TCP</option>
                       <option value="udp">{t("container.protocol")} UDP</option>
@@ -323,7 +359,7 @@ export function ContainerManager({ threadId }: ContainerManagerProps): React.JSX
                       size="icon-sm"
                       className="col-span-2"
                       onClick={() => removePort(index)}
-                      disabled={!enabled}
+                      disabled={sessionStatus.running}
                     >
                       <Trash2 className="size-3.5" />
                     </Button>
@@ -331,12 +367,14 @@ export function ContainerManager({ threadId }: ContainerManagerProps): React.JSX
                 ))}
               </div>
 
-              {!enabled && (
-                <div className="text-xs text-muted-foreground">{t("container.disabled_hint")}</div>
+              {sessionStatus.running && (
+                <div className="text-xs text-muted-foreground">
+                  {t("container.edit_disabled")}
+                </div>
               )}
 
               <div className="flex justify-end">
-                <Button onClick={handleSave} disabled={!available && enabled}>
+                <Button onClick={handleSave} disabled={!available || sessionStatus.running}>
                   {t("container.save")}
                 </Button>
               </div>
