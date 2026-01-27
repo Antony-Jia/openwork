@@ -234,7 +234,10 @@ export async function createAgentRuntime(options: CreateAgentRuntimeOptions) {
   const effectiveWorkspace = dockerConfig?.enabled
     ? normalizeDockerWorkspace(dockerConfig)
     : workspacePath
-  const systemPrompt = getSystemPrompt(effectiveWorkspace, dockerConfig || undefined)
+  const now = new Date()
+  const currentTimePrompt = `Current time: ${now.toISOString()}\nCurrent year: ${now.getFullYear()}`
+  const systemPrompt =
+    getSystemPrompt(effectiveWorkspace, dockerConfig || undefined) + `\n\n${currentTimePrompt}`
 
   const subagents = listSubagents().map((agent) => {
     const resolvedTools = resolveToolInstancesByName(agent.tools) ?? []
@@ -249,7 +252,7 @@ export async function createAgentRuntime(options: CreateAgentRuntimeOptions) {
     return {
       name: agent.name,
       description: agent.description,
-      systemPrompt: agent.systemPrompt,
+      systemPrompt: `${agent.systemPrompt}\n\n${currentTimePrompt}`,
       model: agent.model,
       tools: resolvedTools,
       middleware: resolveMiddlewareById(agent.middleware),

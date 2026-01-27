@@ -7,6 +7,11 @@ import { logEntry, logExit } from "./logging"
 
 const SUBAGENTS_FILE = join(getOpenworkDir(), "subagents.json")
 
+function appendCurrentTime(prompt: string): string {
+  const now = new Date()
+  return `${prompt}\n\nCurrent time: ${now.toISOString()}\nCurrent year: ${now.getFullYear()}`
+}
+
 function readSubagentsFile(): SubagentConfig[] {
   if (!existsSync(SUBAGENTS_FILE)) {
     return []
@@ -56,7 +61,7 @@ export function createSubagent(input: Omit<SubagentConfig, "id">): SubagentConfi
     id: randomUUID(),
     name: input.name.trim(),
     description: input.description.trim(),
-    systemPrompt: input.systemPrompt.trim(),
+    systemPrompt: appendCurrentTime(input.systemPrompt.trim()),
     model: input.model,
     tools: input.tools,
     middleware: input.middleware,
@@ -90,12 +95,16 @@ export function updateSubagent(
   }
 
   const current = subagents[index]
+  const nextSystemPrompt = updates.systemPrompt?.trim()
   const updated: SubagentConfig = {
     ...current,
     ...updates,
     name: nextName ?? current.name,
     description: updates.description?.trim() ?? current.description,
-    systemPrompt: updates.systemPrompt?.trim() ?? current.systemPrompt
+    systemPrompt:
+      updates.systemPrompt === undefined
+        ? current.systemPrompt
+        : appendCurrentTime(nextSystemPrompt ?? "")
   }
 
   subagents[index] = updated

@@ -335,7 +335,7 @@ export function ThreadProvider({ children }: { children: ReactNode }) {
   // Handle custom events from ThreadStreamHolder (interrupts, workspace updates, etc.)
   const handleCustomEvent = useCallback(
     (threadId: string, data: CustomEventData) => {
-      console.log("[ThreadContext] Custom event received:", { threadId, type: data.type, data })
+      // console.log("[ThreadContext] Custom event received:", { threadId, type: data.type, data })
       switch (data.type) {
         case "interrupt":
           if (data.request) {
