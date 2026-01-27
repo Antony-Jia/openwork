@@ -215,7 +215,8 @@ export function createMcpServer(input: McpServerCreateParams): McpServerConfig {
     name: input.name.trim(),
     command: input.command?.trim(),
     url: input.url?.trim(),
-    autoStart: input.autoStart ?? false
+    autoStart: input.autoStart ?? false,
+    enabled: input.enabled ?? true
   }
   saveMcpConfigs([...servers, created])
   logExit("MCP", "createServer", { id: created.id, name: created.name })
@@ -234,11 +235,20 @@ export async function updateMcpServer({
     logExit("MCP", "updateServer", { id, running: false })
     return next
   }
+  const requiresRestart =
+    running &&
+    (updates.mode !== undefined ||
+      updates.command !== undefined ||
+      updates.args !== undefined ||
+      updates.env !== undefined ||
+      updates.cwd !== undefined ||
+      updates.url !== undefined ||
+      updates.headers !== undefined)
 
-  if (running) {
+  if (requiresRestart) {
     await stopMcpServer(id)
     await startMcpServer(id)
-  } else if (updates.autoStart) {
+  } else if (!running && updates.autoStart) {
     await startMcpServer(id)
   }
   logExit("MCP", "updateServer", { id, running: runningServers.has(id) })
@@ -343,7 +353,7 @@ export async function stopMcpServer(id: string): Promise<McpServerStatus> {
 
 export async function startAutoMcpServers(): Promise<void> {
   logEntry("MCP", "startAuto")
-  const servers = listMcpConfigs().filter((item) => item.autoStart)
+  const servers = listMcpConfigs().filter((item) => item.autoStart && item.enabled !== false)
   for (const server of servers) {
     try {
       await startMcpServer(server.id)
@@ -356,27 +366,31 @@ export async function startAutoMcpServers(): Promise<void> {
 }
 
 export async function getRunningMcpToolInstances(): Promise<Array<unknown>> {
-  const instances = Array.from(runningServers.values()).flatMap((server) => server.toolInstances)
+  const instances = Array.from(runningServers.values())
+    .filter((server) => server.config.enabled !== false)
+    .flatMap((server) => server.toolInstances)
   logExit("MCP", "getRunningToolInstances", { count: instances.length })
   return instances
 }
 
 export function listRunningMcpTools(): McpToolInfo[] {
-  const result = Array.from(runningServers.values()).flatMap((server) =>
-    server.tools.map((toolDef) => toMcpToolInfo(server.config, toolDef))
-  )
+  const result = Array.from(runningServers.values())
+    .filter((server) => server.config.enabled !== false)
+    .flatMap((server) => server.tools.map((toolDef) => toMcpToolInfo(server.config, toolDef)))
   logExit("MCP", "listRunningTools", { count: result.length })
   return result
 }
 
 export function getRunningMcpToolInstanceMap(): Map<string, unknown> {
-  const entries = Array.from(runningServers.values()).flatMap((server) =>
-    server.tools.map((toolDef, index) => {
-      const fullName = `mcp.${server.config.id}.${toolDef.name}`
-      const instance = server.toolInstances[index]
-      return [fullName, instance] as const
-    })
-  )
+  const entries = Array.from(runningServers.values())
+    .filter((server) => server.config.enabled !== false)
+    .flatMap((server) =>
+      server.tools.map((toolDef, index) => {
+        const fullName = `mcp.${server.config.id}.${toolDef.name}`
+        const instance = server.toolInstances[index]
+        return [fullName, instance] as const
+      })
+    )
   logExit("MCP", "getRunningToolInstanceMap", { count: entries.length })
   return new Map(entries)
 }

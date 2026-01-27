@@ -5,7 +5,8 @@ import {
   getSkillContent,
   installSkillFromPath,
   listAppSkills,
-  saveSkillContent
+  saveSkillContent,
+  updateSkillEnabled
 } from "../skills"
 import { logEntry, logExit, withSpan } from "../logging"
 
@@ -36,6 +37,12 @@ export function registerSkillHandlers(ipcMain: IpcMain): void {
     logEntry("IPC", "skills:delete", { name })
     deleteSkill(name)
     logExit("IPC", "skills:delete", { name })
+  })
+
+  ipcMain.handle("skills:setEnabled", async (_event, input: { name: string; enabled: boolean }) => {
+    return withSpan("IPC", "skills:setEnabled", { name: input.name }, async () =>
+      updateSkillEnabled(input.name, input.enabled)
+    )
   })
 
   ipcMain.handle("skills:getContent", async (_event, name: string) => {

@@ -165,6 +165,11 @@ export function McpManager(): React.JSX.Element {
     await loadServers()
   }
 
+  const handleToggleEnabled = async (id: string, enabled: boolean): Promise<void> => {
+    await window.api.mcp.update({ id, updates: { enabled } })
+    await loadServers()
+  }
+
   const handleStart = async (id: string): Promise<void> => {
     setBusyId(id)
     try {
@@ -255,6 +260,11 @@ export function McpManager(): React.JSX.Element {
                       <div className="text-[10px] text-muted-foreground">
                         {t("mcp.tools_count")}: {item.status.toolsCount}
                       </div>
+                      {item.config.enabled === false && (
+                        <div className="text-[10px] text-muted-foreground">
+                          {t("mcp.disabled_hint")}
+                        </div>
+                      )}
                       {item.status.lastError && (
                         <div className="text-[10px] text-status-critical">
                           {item.status.lastError}
@@ -263,6 +273,22 @@ export function McpManager(): React.JSX.Element {
                     </div>
                     <div className="flex flex-col items-end gap-2">
                       <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleToggleEnabled(item.config.id, !(item.config.enabled ?? true))
+                          }
+                          className={cn(
+                            "text-[10px] uppercase tracking-[0.2em] transition-colors",
+                            item.config.enabled !== false
+                              ? "text-foreground"
+                              : "text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          {item.config.enabled !== false
+                            ? t("tools.enabled")
+                            : t("tools.disabled")}
+                        </button>
                         <Button
                           variant="ghost"
                           size="sm"

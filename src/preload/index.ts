@@ -209,6 +209,9 @@ const api = {
     delete: (name: string): Promise<void> => {
       return ipcRenderer.invoke("skills:delete", name)
     },
+    setEnabled: (input: { name: string; enabled: boolean }): Promise<SkillItem> => {
+      return ipcRenderer.invoke("skills:setEnabled", input)
+    },
     getContent: (name: string): Promise<string> => {
       return ipcRenderer.invoke("skills:getContent", name)
     },

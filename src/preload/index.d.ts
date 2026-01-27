@@ -88,6 +88,7 @@ interface CustomAPI {
     create: (input: { name: string; description: string; content?: string }) => Promise<SkillItem>
     install: (input: { path: string }) => Promise<SkillItem>
     delete: (name: string) => Promise<void>
+    setEnabled: (input: { name: string; enabled: boolean }) => Promise<SkillItem>
     getContent: (name: string) => Promise<string>
     saveContent: (input: { name: string; content: string }) => Promise<SkillItem>
   }

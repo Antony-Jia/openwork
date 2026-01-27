@@ -11,6 +11,7 @@ import { basename, join, resolve } from "node:path"
 import { listSkills } from "deepagents"
 import type { SkillItem } from "./types"
 import { logEntry, logExit } from "./logging"
+import { isSkillEnabled, removeSkillConfig, setSkillEnabled } from "./skills/config"
 
 const SKILLS_ROOT = join(process.cwd(), ".openwork", "skills")
 
@@ -37,7 +38,8 @@ export function listAppSkills(): SkillItem[] {
     name: skill.name,
     description: skill.description,
     path: normalizeSkillPath(skill.path),
-    source: skill.source
+    source: skill.source,
+    enabled: isSkillEnabled(skill.name)
   }))
   logExit("Skills", "list", { count: result.length })
   return result
@@ -85,7 +87,8 @@ export function createSkill(params: {
     name,
     description,
     path: normalizeSkillPath(skillPath),
-    source: "user"
+    source: "user",
+    enabled: true
   }
   logExit("Skills", "create", { name })
   return result
@@ -137,7 +140,8 @@ export function installSkillFromPath(inputPath: string): SkillItem {
     name: skillName,
     description,
     path: normalizeSkillPath(skillPath),
-    source: "user"
+    source: "user",
+    enabled: true
   }
   logExit("Skills", "install", { name: skillName })
   return result
@@ -165,6 +169,7 @@ export function deleteSkill(name: string): void {
     return
   }
   rmSync(skillDir, { recursive: true, force: true })
+  removeSkillConfig(name)
   logExit("Skills", "delete", { name })
 }
 
@@ -193,8 +198,29 @@ export function saveSkillContent(name: string, content: string): SkillItem {
     name,
     description,
     path: normalizeSkillPath(skillPath),
-    source: "user"
+    source: "user",
+    enabled: isSkillEnabled(name)
   }
   logExit("Skills", "saveContent", { name })
+  return result
+}
+
+export function updateSkillEnabled(name: string, enabled: boolean): SkillItem {
+  logEntry("Skills", "setEnabled", { name, enabled })
+  const root = ensureSkillsDir()
+  const skillPath = join(root, name, "SKILL.md")
+  if (!existsSync(skillPath)) {
+    throw new Error("Skill not found.")
+  }
+  setSkillEnabled(name, enabled)
+  const description = readSkillDescription(skillPath)
+  const result = {
+    name,
+    description,
+    path: normalizeSkillPath(skillPath),
+    source: "user",
+    enabled
+  }
+  logExit("Skills", "setEnabled", { name, enabled })
   return result
 }

@@ -187,6 +187,11 @@ export function SubagentManager(): React.JSX.Element {
     await loadSubagents()
   }
 
+  const handleToggleEnabled = async (agent: SubagentConfig): Promise<void> => {
+    await window.api.subagents.update(agent.id, { enabled: !(agent.enabled ?? true) })
+    await loadSubagents()
+  }
+
   const handleOpenChange = (next: boolean): void => {
     if (!next) {
       resetForm()
@@ -249,8 +254,25 @@ export function SubagentManager(): React.JSX.Element {
                     <div className="space-y-1">
                       <div className="text-sm font-medium">{agent.name}</div>
                       <div className="text-xs text-muted-foreground">{agent.description}</div>
+                      {agent.enabled === false && (
+                        <div className="text-[10px] text-muted-foreground">
+                          {t("subagents.disabled_hint")}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleEnabled(agent)}
+                        className={cn(
+                          "text-[10px] uppercase tracking-[0.2em] transition-colors",
+                          agent.enabled !== false
+                            ? "text-foreground"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        {agent.enabled !== false ? t("tools.enabled") : t("tools.disabled")}
+                      </button>
                       <Button variant="ghost" size="sm" onClick={() => startEdit(agent)}>
                         <Pencil className="size-3.5" />
                         {t("subagents.edit")}
@@ -361,7 +383,8 @@ export function SubagentManager(): React.JSX.Element {
                       const serverTools = mcpTools.filter(
                         (tool) => tool.serverId === server.config.id
                       )
-                      const canSelect = serverTools.length > 0
+                      const isEnabled = server.config.enabled !== false
+                      const canSelect = isEnabled && serverTools.length > 0
                       return (
                         <div
                           key={server.config.id}
@@ -389,7 +412,9 @@ export function SubagentManager(): React.JSX.Element {
                               </span>
                             </div>
                             <span className="text-[10px] text-muted-foreground shrink-0">
-                              {server.status.running
+                              {!isEnabled
+                                ? t("mcp.disabled_hint")
+                                : server.status.running
                                 ? `${server.status.toolsCount} ${t("mcp.tools_count")}`
                                 : t("subagents.mcp_not_running")}
                             </span>

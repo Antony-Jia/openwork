@@ -134,6 +134,7 @@ const translations = {
     "subagents.cancel": "Cancel",
     "subagents.edit": "Edit",
     "subagents.delete": "Delete",
+    "subagents.disabled_hint": "Disabled subagents are not injected into agents.",
 
     // Container
     "container.title": "CONTAINER",
@@ -176,6 +177,7 @@ const translations = {
     "skills.cancel": "Cancel",
     "skills.edit": "Edit",
     "skills.delete": "Delete",
+    "skills.disabled_hint": "Disabled skills are not injected into agents.",
 
     // Tools
     "tools.title": "TOOLS",
@@ -227,6 +229,7 @@ const translations = {
     "mcp.save_failed": "Failed to save MCP server",
     "mcp.start_failed": "Failed to start MCP server",
     "mcp.stop_failed": "Failed to stop MCP server",
+    "mcp.disabled_hint": "Disabled MCP servers are not injected.",
 
     // General
     "common.progress": "PROGRESS",
@@ -353,6 +356,7 @@ const translations = {
     "subagents.cancel": "取消",
     "subagents.edit": "编辑",
     "subagents.delete": "删除",
+    "subagents.disabled_hint": "已禁用的智能体不会注入到智能体上下文。",
 
     // Container
     "container.title": "容器",
@@ -394,6 +398,7 @@ const translations = {
     "skills.cancel": "取消",
     "skills.edit": "编辑",
     "skills.delete": "删除",
+    "skills.disabled_hint": "已禁用的技能不会注入到智能体。",
 
     // Tools
     "tools.title": "工具管理",
@@ -445,6 +450,7 @@ const translations = {
     "mcp.save_failed": "保存 MCP 服务失败",
     "mcp.start_failed": "启动 MCP 服务失败",
     "mcp.stop_failed": "停止 MCP 服务失败",
+    "mcp.disabled_hint": "已禁用的 MCP 不会注入。",
 
     // General
     "common.progress": "进度",

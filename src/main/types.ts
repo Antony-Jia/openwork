@@ -157,6 +157,7 @@ export interface SubagentConfig {
   tools?: string[]
   middleware?: string[]
   interruptOn?: boolean
+  enabled?: boolean
 }
 
 // Skill metadata for management UI
@@ -165,6 +166,7 @@ export interface SkillItem {
   description: string
   path: string
   source?: string
+  enabled: boolean
 }
 
 export interface ToolDefinition {
@@ -238,6 +240,7 @@ export interface McpServerConfig {
   url?: string
   headers?: Record<string, string>
   autoStart?: boolean
+  enabled?: boolean
 }
 
 export interface McpServerStatus {

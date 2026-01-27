@@ -5,7 +5,7 @@ import { ChatOpenAI } from "@langchain/openai"
 import { SqlJsSaver } from "../checkpointer/sqljs-saver"
 import { LocalSandbox } from "./local-sandbox"
 import { listSubagents } from "../subagents"
-import { getSkillsRoot } from "../skills"
+import { getSkillsRoot, listAppSkills } from "../skills"
 import { getEnabledToolInstances, getEnabledToolNames, resolveToolInstancesByName } from "../tools/service"
 import { getRunningMcpToolInstances, listRunningMcpTools } from "../mcp/service"
 import { resolveMiddlewareById } from "../middleware/registry"
@@ -239,29 +239,34 @@ export async function createAgentRuntime(options: CreateAgentRuntimeOptions) {
   const systemPrompt =
     getSystemPrompt(effectiveWorkspace, dockerConfig || undefined) + `\n\n${currentTimePrompt}`
 
-  const subagents = listSubagents().map((agent) => {
-    const resolvedTools = resolveToolInstancesByName(agent.tools) ?? []
-    logEntry("Runtime", "subagent.tools", {
-      name: agent.name,
-      ...summarizeList(agent.tools ?? [])
+  const subagents = listSubagents()
+    .filter((agent) => agent.enabled !== false)
+    .map((agent) => {
+      const resolvedTools = resolveToolInstancesByName(agent.tools) ?? []
+      logEntry("Runtime", "subagent.tools", {
+        name: agent.name,
+        ...summarizeList(agent.tools ?? [])
+      })
+      logExit("Runtime", "subagent.tools", {
+        name: agent.name,
+        resolvedCount: resolvedTools.length
+      })
+      return {
+        name: agent.name,
+        description: agent.description,
+        systemPrompt: `${agent.systemPrompt}\n\n${currentTimePrompt}`,
+        model: agent.model,
+        tools: resolvedTools,
+        middleware: resolveMiddlewareById(agent.middleware),
+        interruptOn: disableApprovals ? undefined : agent.interruptOn ? { execute: true } : undefined
+      }
     })
-    logExit("Runtime", "subagent.tools", {
-      name: agent.name,
-      resolvedCount: resolvedTools.length
-    })
-    return {
-      name: agent.name,
-      description: agent.description,
-      systemPrompt: `${agent.systemPrompt}\n\n${currentTimePrompt}`,
-      model: agent.model,
-      tools: resolvedTools,
-      middleware: resolveMiddlewareById(agent.middleware),
-      interruptOn: disableApprovals ? undefined : agent.interruptOn ? { execute: true } : undefined
-    }
-  })
 
   const skillsRoot = getSkillsRoot().replace(/\\/g, "/")
+  const enabledSkills = listAppSkills().filter((skill) => skill.enabled)
+  const enabledSkillPaths = enabledSkills.map((skill) => skill.path)
   logEntry("Runtime", "skillsRoot", { path: skillsRoot })
+  logEntry("Runtime", "skills.enabled", summarizeList(enabledSkills.map((skill) => skill.name)))
 
   // Custom filesystem prompt for absolute paths (matches virtualMode: false)
   const filesystemSystemPrompt = `You have access to a filesystem. All file paths use fully qualified absolute system paths.
@@ -299,7 +304,7 @@ The workspace root is: ${effectiveWorkspace}`
     // Custom filesystem prompt for absolute paths (requires deepagents update)
     // filesystemSystemPrompt,
     subagents,
-    skills: [skillsRoot],
+    skills: enabledSkillPaths,
     // Require human approval for all shell commands
     interruptOn: disableApprovals ? undefined : { execute: true }
   } as Parameters<typeof createDeepAgent>[0])

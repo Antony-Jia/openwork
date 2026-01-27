@@ -65,7 +65,8 @@ export function createSubagent(input: Omit<SubagentConfig, "id">): SubagentConfi
     model: input.model,
     tools: input.tools,
     middleware: input.middleware,
-    interruptOn: input.interruptOn ?? false
+    interruptOn: input.interruptOn ?? false,
+    enabled: input.enabled ?? true
   }
 
   writeSubagentsFile([...subagents, created])

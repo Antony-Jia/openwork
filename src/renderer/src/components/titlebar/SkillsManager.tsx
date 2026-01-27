@@ -106,6 +106,11 @@ export function SkillsManager(): React.JSX.Element {
     await loadSkills()
   }
 
+  const handleToggleEnabled = async (skill: SkillItem): Promise<void> => {
+    await window.api.skills.setEnabled({ name: skill.name, enabled: !skill.enabled })
+    await loadSkills()
+  }
+
   const handleOpenChange = (next: boolean): void => {
     if (!next) {
       resetForm()
@@ -171,8 +176,25 @@ export function SkillsManager(): React.JSX.Element {
                       <div className="text-sm font-medium">{skill.name}</div>
                       <div className="text-xs text-muted-foreground">{skill.description}</div>
                       <div className="text-[10px] text-muted-foreground">{skill.path}</div>
+                      {!skill.enabled && (
+                        <div className="text-[10px] text-muted-foreground">
+                          {t("skills.disabled_hint")}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleEnabled(skill)}
+                        className={cn(
+                          "text-[10px] uppercase tracking-[0.2em] transition-colors",
+                          skill.enabled
+                            ? "text-foreground"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        {skill.enabled ? t("tools.enabled") : t("tools.disabled")}
+                      </button>
                       <Button variant="ghost" size="sm" onClick={() => startEdit(skill)}>
                         <Pencil className="size-3.5" />
                         {t("skills.edit")}
