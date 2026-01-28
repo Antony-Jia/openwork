@@ -7,8 +7,9 @@ import { createAgentRuntime, closeCheckpointer } from "../agent/runtime"
 import { getThread, updateThread as dbUpdateThread } from "../db"
 import { deleteThreadCheckpoint } from "../storage"
 import { getSettings } from "../settings"
-import { fetchUnreadEmailTasks, markEmailTaskRead, sendEmail } from "../email/service"
+import { buildEmailSubject, sendEmail } from "../email/service"
 import { ensureDockerRunning, getDockerRuntimeConfig } from "../docker/session"
+import { extractAssistantChunkText } from "../agent/stream-utils"
 import type {
   AgentInvokeParams,
   AgentResumeParams,
@@ -21,16 +22,6 @@ import type {
 
 // Track active runs for cancellation
 const activeRuns = new Map<string, AbortController>()
-const EMAIL_TASK_TAG = "<OpenworkTask>"
-
-function buildEmailSubject(threadId: string, suffix: string): string {
-  const cleaned = suffix.trim()
-  return `${EMAIL_TASK_TAG} [${threadId}] ${cleaned}`.trim()
-}
-
-function stripEmailSubjectPrefix(subject: string): string {
-  return subject.replace(/^<OpenworkTask>\s*\[[^\]]+\]\s*/i, "").trim()
-}
 
 function parseMetadata(threadId: string): Record<string, unknown> {
   const row = getThread(threadId)
@@ -72,36 +63,6 @@ function appendProgressEntry(workspacePath: string, storyId = "INIT"): void {
   appendFileSync(progressPath, entry)
 }
 
-function extractContent(content: unknown): string {
-  if (typeof content === "string") return content
-  if (Array.isArray(content)) {
-    return content
-      .map((part) => {
-        if (typeof part === "string") return part
-        if (typeof part === "object" && part) {
-          const record = part as Record<string, unknown>
-          if (typeof record.text === "string") return record.text
-          if (typeof record.content === "string") return record.content
-        }
-        return ""
-      })
-      .join("")
-  }
-  return ""
-}
-
-function extractAssistantChunkText(data: unknown): string | null {
-  const tuple = data as [unknown, unknown]
-  const msgChunk = tuple?.[0] as { id?: unknown; kwargs?: Record<string, unknown> } | undefined
-  const kwargs = msgChunk?.kwargs || {}
-  const classId = Array.isArray(msgChunk?.id) ? msgChunk?.id : []
-  const className = classId[classId.length - 1] || ""
-  if (!className.includes("AI")) {
-    return null
-  }
-  const content = extractContent(kwargs.content)
-  return content || null
-}
 
 function buildRalphInitPrompt(userMessage: string): string {
   const example = [
@@ -447,57 +408,6 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
           })
         } catch (emailError) {
           console.warn("[Agent] Failed to send completion email:", emailError)
-        }
-
-        if (!abortController.signal.aborted) {
-          try {
-            const tasks = await fetchUnreadEmailTasks(threadId)
-            for (const task of tasks) {
-              if (abortController.signal.aborted) break
-              await resetRalphCheckpoint(threadId)
-              const taskPrompt = [
-                `Email task from ${task.from}:`,
-                `Subject: ${task.subject}`,
-                "",
-                task.text
-              ].join("\n")
-
-              const taskSummary = await streamAgentRun({
-                threadId,
-                workspacePath: normalizedWorkspace,
-                modelId,
-                dockerConfig,
-                dockerContainerId,
-                message: taskPrompt,
-                window,
-                channel,
-                abortController
-              })
-
-              const taskSummaryText = taskSummary || "Task completed. See Openwork for details."
-              try {
-                const cleanedSubject = stripEmailSubjectPrefix(task.subject)
-                await sendEmail({
-                  subject: buildEmailSubject(
-                    threadId,
-                    `Completed - ${cleanedSubject || task.subject}`
-                  ),
-                  text: taskSummaryText
-                })
-              } catch (emailError) {
-                console.warn("[Agent] Failed to send task completion email:", emailError)
-                continue
-              }
-
-              try {
-                await markEmailTaskRead(task.id)
-              } catch (emailError) {
-                console.warn("[Agent] Failed to mark email task as read:", emailError)
-              }
-            }
-          } catch (emailError) {
-            console.warn("[Agent] Failed to fetch email tasks:", emailError)
-          }
         }
 
         if (!abortController.signal.aborted) {

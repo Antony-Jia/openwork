@@ -228,6 +228,7 @@ export interface EmailSettings {
 export interface AppSettings {
   ralphIterations: number
   email: EmailSettings
+  defaultWorkspacePath?: string | null
   dockerConfig?: DockerConfig
 }
 

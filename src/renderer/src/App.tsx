@@ -111,6 +111,15 @@ function App(): React.JSX.Element {
     init()
   }, [loadThreads, createThread])
 
+  useEffect(() => {
+    const cleanup = window.api.ipcRenderer.on("threads:changed", () => {
+      loadThreads()
+    })
+    return () => {
+      if (typeof cleanup === "function") cleanup()
+    }
+  }, [loadThreads])
+
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">

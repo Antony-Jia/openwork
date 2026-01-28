@@ -9,9 +9,24 @@ export interface EmailTask {
   subject: string
   from: string
   text: string
+  threadId?: string | null
 }
 
 const OPENWORK_SUBJECT_TAG = "<OpenworkTask>"
+
+export function normalizeSubject(subject: string): string {
+  return subject.replace(/^(?:\s*(?:re|fwd|fw):\s*)+/gi, "").trim()
+}
+
+export function buildEmailSubject(threadId: string, suffix: string): string {
+  const cleaned = suffix.trim()
+  return `${OPENWORK_SUBJECT_TAG} [${threadId}] ${cleaned}`.trim()
+}
+
+export function stripEmailSubjectPrefix(subject: string): string {
+  const normalized = normalizeSubject(subject)
+  return normalized.replace(/^<OpenworkTask>\s*(\[[^\]]+\]\s*)?/i, "").trim()
+}
 
 function getEmailSettings(): EmailSettings {
   const settings = getSettings()
@@ -62,8 +77,20 @@ export async function sendEmail({
 }
 
 function extractThreadIdFromSubject(subject: string): string | null {
-  const match = subject.match(/<OpenworkTask>\s*\[([^\]]+)\]/)
+  const normalized = normalizeSubject(subject)
+  const match = normalized.match(/<OpenworkTask>\s*\[([^\]]+)\]/i)
   return match ? match[1] : null
+}
+
+export function isStartWorkSubject(subject: string): boolean {
+  const normalized = normalizeSubject(subject)
+  if (!normalized.toLowerCase().includes(OPENWORK_SUBJECT_TAG.toLowerCase())) {
+    return false
+  }
+  if (extractThreadIdFromSubject(normalized)) {
+    return false
+  }
+  return /^<OpenworkTask>\s*startwork\b/i.test(normalized)
 }
 
 export async function fetchUnreadEmailTasks(threadId?: string): Promise<EmailTask[]> {
@@ -99,7 +126,7 @@ export async function fetchUnreadEmailTasks(threadId?: string): Promise<EmailTas
       if (!message.source) continue
       const parsed = await simpleParser(message.source)
       const subject = parsed.subject ?? ""
-      if (!subject.includes(OPENWORK_SUBJECT_TAG)) {
+      if (!subject.toLowerCase().includes(OPENWORK_SUBJECT_TAG.toLowerCase())) {
         continue
       }
       if (threadId) {
@@ -111,11 +138,13 @@ export async function fetchUnreadEmailTasks(threadId?: string): Promise<EmailTas
 
       const from = parsed.from?.text ?? ""
       const text = parsed.text ?? ""
+      const extractedThreadId = extractThreadIdFromSubject(subject)
       tasks.push({
         id: String(message.uid),
         subject,
         from,
-        text
+        text,
+        threadId: extractedThreadId
       })
     }
   } finally {

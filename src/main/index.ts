@@ -12,6 +12,7 @@ import { initializeDatabase } from "./db"
 import { registerMcpHandlers } from "./ipc/mcp"
 import { startAutoMcpServers } from "./mcp/service"
 import { registerSettingsHandlers } from "./ipc/settings"
+import { startEmailPolling, stopEmailPolling } from "./email/worker"
 
 let mainWindow: BrowserWindow | null = null
 
@@ -127,6 +128,8 @@ app.whenReady().then(async () => {
 
   createWindow()
 
+  startEmailPolling()
+
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow()
@@ -138,4 +141,8 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit()
   }
+})
+
+app.on("before-quit", () => {
+  stopEmailPolling()
 })

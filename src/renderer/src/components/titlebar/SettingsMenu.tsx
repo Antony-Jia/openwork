@@ -49,6 +49,7 @@ export function SettingsMenu(_props: SettingsMenuProps): React.JSX.Element {
   const [imapSecure, setImapSecure] = useState(true)
   const [imapUser, setImapUser] = useState("")
   const [imapPass, setImapPass] = useState("")
+  const [defaultWorkspacePath, setDefaultWorkspacePath] = useState("")
 
   // Load current config on mount
   useEffect(() => {
@@ -70,6 +71,7 @@ export function SettingsMenu(_props: SettingsMenuProps): React.JSX.Element {
         const settings = (await window.api.settings.get()) as AppSettings
         if (settings) {
           setRalphIterations(String(settings.ralphIterations || 5))
+          setDefaultWorkspacePath(settings.defaultWorkspacePath || "")
           setEmailEnabled(!!settings.email?.enabled)
           setEmailFrom(settings.email?.from || "")
           setEmailTo((settings.email?.to || []).join(", "))
@@ -105,6 +107,7 @@ export function SettingsMenu(_props: SettingsMenuProps): React.JSX.Element {
         updates: {
           ralphIterations:
             Number.isFinite(iterationsValue) && iterationsValue > 0 ? iterationsValue : 5,
+          defaultWorkspacePath: defaultWorkspacePath.trim() || null,
           email: {
             enabled: emailEnabled,
             from: emailFrom.trim(),
@@ -133,6 +136,7 @@ export function SettingsMenu(_props: SettingsMenuProps): React.JSX.Element {
     }
   }, [
     ralphIterations,
+    defaultWorkspacePath,
     emailEnabled,
     emailFrom,
     emailTo,
@@ -147,6 +151,17 @@ export function SettingsMenu(_props: SettingsMenuProps): React.JSX.Element {
     imapUser,
     imapPass
   ])
+
+  const handleSelectDefaultWorkspace = useCallback(async () => {
+    try {
+      const selectedPath = await window.api.workspace.select()
+      if (selectedPath) {
+        setDefaultWorkspacePath(selectedPath)
+      }
+    } catch (e) {
+      console.error("Failed to select default workspace:", e)
+    }
+  }, [])
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -198,6 +213,24 @@ export function SettingsMenu(_props: SettingsMenuProps): React.JSX.Element {
           <div className="flex-1 overflow-y-auto">
             {activeTab === "general" && (
               <>
+                {/* Default Workspace */}
+                <div className="px-4 py-3 border-b border-border/70 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-xs text-muted-foreground">
+                      {t("settings.general.default_workspace")}
+                    </div>
+                    <div
+                      className="text-[10px] text-muted-foreground truncate"
+                      title={defaultWorkspacePath || undefined}
+                    >
+                      {defaultWorkspacePath || t("settings.general.default_workspace_empty")}
+                    </div>
+                  </div>
+                  <Button variant="secondary" size="sm" onClick={handleSelectDefaultWorkspace}>
+                    {t("settings.general.default_workspace_choose")}
+                  </Button>
+                </div>
+
                 {/* Language Selection */}
                 <div className="px-4 py-3 border-b border-border/70 flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">{t("settings.language")}</span>

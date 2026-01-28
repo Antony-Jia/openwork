@@ -22,6 +22,7 @@ const defaultSettings: AppSettings = {
       pass: ""
     }
   },
+  defaultWorkspacePath: "",
   dockerConfig: {
     enabled: false,
     image: "python:3.13-alpine",
@@ -99,6 +100,10 @@ export function updateSettings(updates: Partial<AppSettings>): AppSettings {
         ...(updates.email?.imap ?? {})
       }
     },
+    defaultWorkspacePath:
+      updates.defaultWorkspacePath === undefined
+        ? current.defaultWorkspacePath
+        : updates.defaultWorkspacePath,
     dockerConfig: updates.dockerConfig ?? current.dockerConfig
   }
 

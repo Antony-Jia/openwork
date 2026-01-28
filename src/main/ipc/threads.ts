@@ -10,6 +10,9 @@ import {
 import { getCheckpointer, closeCheckpointer } from "../agent/runtime"
 import { deleteThreadCheckpoint } from "../storage"
 import { generateTitle } from "../services/title-generator"
+import { getSettings } from "../settings"
+import { buildEmailSubject, sendEmail } from "../email/service"
+import { broadcastThreadsChanged } from "./events"
 import type { Thread, ThreadUpdateParams } from "../types"
 
 export function registerThreadHandlers(ipcMain: IpcMain): void {
@@ -46,8 +49,38 @@ export function registerThreadHandlers(ipcMain: IpcMain): void {
   ipcMain.handle("threads:create", async (_event, metadata?: Record<string, unknown>) => {
     const threadId = uuid()
     const title = (metadata?.title as string) || `Thread ${new Date().toLocaleDateString()}`
+    const mode = (metadata?.mode as string) || "default"
+    const settings = getSettings()
+    const defaultWorkspacePath =
+      typeof settings.defaultWorkspacePath === "string" && settings.defaultWorkspacePath.trim()
+        ? settings.defaultWorkspacePath.trim()
+        : null
+    const mergedMetadata: Record<string, unknown> = { mode: "default", ...metadata, title }
 
-    const thread = dbCreateThread(threadId, { mode: "default", ...metadata, title })
+    if (mode === "email" && !mergedMetadata.workspacePath && defaultWorkspacePath) {
+      mergedMetadata.workspacePath = defaultWorkspacePath
+    }
+
+    const thread = dbCreateThread(threadId, mergedMetadata)
+    dbUpdateThread(threadId, { title })
+    broadcastThreadsChanged()
+
+    if (mode === "email") {
+      try {
+        await sendEmail({
+          subject: buildEmailSubject(threadId, "StartWork"),
+          text: [
+            "Started a new Openwork task.",
+            "",
+            `Work ID: ${threadId}`,
+            "Reply to this email to continue the task.",
+            ""
+          ].join("\n")
+        })
+      } catch (emailError) {
+        console.warn("[Threads] Failed to send start email:", emailError)
+      }
+    }
 
     return {
       thread_id: thread.thread_id,
@@ -72,6 +105,7 @@ export function registerThreadHandlers(ipcMain: IpcMain): void {
 
     const row = dbUpdateThread(threadId, updateData)
     if (!row) throw new Error("Thread not found")
+    broadcastThreadsChanged()
 
     return {
       thread_id: row.thread_id,
@@ -107,6 +141,7 @@ export function registerThreadHandlers(ipcMain: IpcMain): void {
     } catch (e) {
       console.warn("[Threads] Failed to delete checkpoint file:", e)
     }
+    broadcastThreadsChanged()
   })
 
   // Get thread history (checkpoints)
