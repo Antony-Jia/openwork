@@ -252,7 +252,20 @@ const translations = {
 
     // General
     "common.progress": "PROGRESS",
-    "common.done": "DONE"
+    "common.done": "DONE",
+
+    // Ralph Progress
+    "ralph.progress.title": "Ralph Progress",
+    "ralph.progress.iteration": "Iteration",
+    "ralph.progress.phase": "Phase",
+    "ralph.progress.more": "more",
+    "ralph.progress.empty": "No plan or progress yet",
+    "ralph.phase.init": "Initializing",
+    "ralph.phase.awaiting_confirm": "Awaiting Confirm",
+    "ralph.phase.running": "Running",
+    "ralph.phase.done": "Done",
+    "ralph.plan.project": "Project",
+    "ralph.plan.stories": "User Stories"
   },
   zh: {
     // Settings & Titlebar
@@ -492,7 +505,20 @@ const translations = {
 
     // General
     "common.progress": "进度",
-    "common.done": "完成"
+    "common.done": "完成",
+
+    // Ralph Progress
+    "ralph.progress.title": "Ralph 进度",
+    "ralph.progress.iteration": "迭代次数",
+    "ralph.progress.phase": "阶段",
+    "ralph.progress.more": "更多",
+    "ralph.progress.empty": "暂无计划或进度",
+    "ralph.phase.init": "初始化",
+    "ralph.phase.awaiting_confirm": "等待确认",
+    "ralph.phase.running": "运行中",
+    "ralph.phase.done": "已完成",
+    "ralph.plan.project": "项目",
+    "ralph.plan.stories": "用户故事"
   }
 }
 

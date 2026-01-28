@@ -49,12 +49,12 @@ async function resetRalphCheckpoint(threadId: string): Promise<void> {
 function appendProgressEntry(workspacePath: string, storyId = "INIT"): void {
   const entry = [
     `## [${new Date().toLocaleString()}] - ${storyId}`,
-    "- What was implemented",
-    "- Files changed",
-    "- **Learnings for future iterations:**",
-    '  - Patterns discovered (e.g., "this codebase uses X for Y")',
-    '  - Gotchas encountered (e.g., "don\'t forget to update Z when changing W")',
-    '  - Useful context (e.g., "the evaluation panel is in component X")',
+    "- 实现内容",
+    "- 修改的文件",
+    "- **后续迭代的经验教训：**",
+    '  - 发现的模式（例如："这个代码库使用 X 来实现 Y"）',
+    '  - 遇到的坑（例如："修改 W 时别忘了更新 Z"）',
+    '  - 有用的上下文（例如："评估面板在组件 X 中"）',
     "---",
     ""
   ].join("\n")
@@ -69,16 +69,16 @@ function buildRalphInitPrompt(userMessage: string): string {
     "{",
     '  "project": "MyApp",',
     '  "branchName": "ralph/task-priority",',
-    '  "description": "Task Priority System - Add priority levels to tasks",',
+    '  "description": "任务优先级系统 - 为任务添加优先级",',
     '  "userStories": [',
     "    {",
     '      "id": "US-001",',
-    '      "title": "Add priority field to database",',
-    '      "description": "As a developer, I need to store task priority so it persists across sessions.",',
+    '      "title": "在数据库中添加优先级字段",',
+    '      "description": "作为开发者，我需要存储任务优先级以便跨会话持久化。",',
     '      "acceptanceCriteria": [',
-    "        \"Add priority column to tasks table: 'high' | 'medium' | 'low' (default 'medium')\",",
-    '        "Generate and run migration successfully",',
-    '        "Typecheck passes"',
+    "        \"在 tasks 表中添加 priority 列：'high' | 'medium' | 'low'（默认 'medium'）\",",
+    '        "成功生成并运行迁移",',
+    '        "类型检查通过"',
     "      ],",
     '      "priority": 1,',
     '      "passes": false,',
@@ -86,13 +86,13 @@ function buildRalphInitPrompt(userMessage: string): string {
     "    },",
     "    {",
     '      "id": "US-002",',
-    '      "title": "Display priority indicator on task cards",',
-    '      "description": "As a user, I want to see task priority at a glance.",',
+    '      "title": "在任务卡片上显示优先级指示器",',
+    '      "description": "作为用户，我希望能一眼看到任务优先级。",',
     '      "acceptanceCriteria": [',
-    '        "Each task card shows colored priority badge (red=high, yellow=medium, gray=low)",',
-    '        "Priority visible without hovering or clicking",',
-    '        "Typecheck passes",',
-    '        "Verify in browser using dev-browser skill"',
+    '        "每个任务卡片显示彩色优先级徽章（红色=高，黄色=中，灰色=低）",',
+    '        "无需悬停或点击即可看到优先级",',
+    '        "类型检查通过",',
+    '        "使用 dev-browser 技能在浏览器中验证"',
     "      ],",
     '      "priority": 2,',
     '      "passes": false,',
@@ -103,16 +103,16 @@ function buildRalphInitPrompt(userMessage: string): string {
   ].join("\n")
 
   return [
-    "Ralph mode initialization:",
-    "1) Confirm task details with the user.",
-    "2) Produce the JSON plan in the exact schema shown below.",
-    "3) Save the JSON to ralph_plan.json in the workspace.",
-    "4) Ask the user to reply with /confirm to start iterations.",
+    "Ralph 模式初始化：",
+    "1) 与用户确认任务详情。",
+    "2) 按照下面的 JSON 格式生成计划。",
+    "3) 将 JSON 保存到工作区的 ralph_plan.json 文件中。",
+    "4) 请用户回复 /confirm 以开始迭代。",
     "",
-    "JSON schema example:",
+    "JSON 格式示例：",
     example,
     "",
-    "User request:",
+    "用户请求：",
     userMessage.trim()
   ].join("\n")
 }
@@ -241,7 +241,7 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
         window.webContents.send(channel, {
           type: "error",
           error: "WORKSPACE_REQUIRED",
-          message: "Please select a workspace folder before sending messages."
+          message: "请在发送消息前选择一个工作区文件夹。"
         })
         return
       }
@@ -256,7 +256,8 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
         const isConfirm = trimmed.toLowerCase() === "/confirm"
 
         if (ralph.phase === "awaiting_confirm" && !isConfirm) {
-          await resetRalphCheckpoint(threadId)
+          // 计划阶段不清空记忆
+          // await resetRalphCheckpoint(threadId)
           const initPrompt = buildRalphInitPrompt(trimmed)
 
           await streamAgentRun({
@@ -284,7 +285,7 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
             window.webContents.send(channel, {
               type: "error",
               error: "RALPH_PLAN_MISSING",
-              message: "Please generate ralph_plan.json before confirming iterations."
+              message: "请在确认迭代前先生成 ralph_plan.json 文件。"
             })
             return
           }
@@ -301,14 +302,15 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
               break
             }
 
+            // 迭代阶段清空记忆，从文件记忆中读取内容
             await resetRalphCheckpoint(threadId)
             const iterationPrompt = [
-              `Ralph iteration ${i}/${maxIterations}:`,
-              "- Read ralph_plan.json and progress.txt before making changes.",
-              "- Use the filesystem as the single source of truth.",
-              "- Implement the next highest-priority story.",
-              "- Append to progress.txt using the required template (never overwrite).",
-              "- If work is complete, create a .ralph_done file with a short summary."
+              `Ralph 迭代 ${i}/${maxIterations}：`,
+              "- 在修改前先阅读 ralph_plan.json 和 progress.txt。",
+              "- 以文件系统作为唯一的真实来源。",
+              "- 实现下一个最高优先级的用户故事。",
+              "- 使用规定的模板追加到 progress.txt（不要覆盖）。",
+              "- 如果工作完成，创建一个 .ralph_done 文件并写入简短总结。"
             ].join("\n")
 
             await streamAgentRun({
@@ -345,7 +347,7 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
           window.webContents.send(channel, {
             type: "error",
             error: "RALPH_RUNNING",
-            message: "Ralph is already running. Please wait for completion."
+            message: "Ralph 正在运行中，请等待完成。"
           })
           return
         }
@@ -400,7 +402,7 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
           abortController
         })
 
-        const summaryText = summary || "Task completed. See Openwork for details."
+        const summaryText = summary || "任务已完成。详情请查看 Openwork。"
         try {
           await sendEmail({
             subject: buildEmailSubject(threadId, `Completed - ${thread?.title || threadId}`),
@@ -476,7 +478,7 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
     if (!workspacePath) {
       window.webContents.send(channel, {
         type: "error",
-        error: "Workspace path is required"
+        error: "需要工作区路径"
       })
       return
     }
@@ -568,7 +570,7 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
     if (!workspacePath) {
       window.webContents.send(channel, {
         type: "error",
-        error: "Workspace path is required"
+        error: "需要工作区路径"
       })
       return
     }
