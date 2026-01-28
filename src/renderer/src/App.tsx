@@ -112,7 +112,7 @@ function App(): React.JSX.Element {
   }, [loadThreads, createThread])
 
   useEffect(() => {
-    const cleanup = window.api.ipcRenderer.on("threads:changed", () => {
+    const cleanup = window.electron.ipcRenderer.on("threads:changed", () => {
       loadThreads()
     })
     return () => {
