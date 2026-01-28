@@ -1,4 +1,4 @@
-import { IpcMain } from "electron"
+import { IpcMain, dialog } from "electron"
 import { spawn } from "node:child_process"
 import type { DockerConfig } from "../types"
 import {
@@ -85,6 +85,21 @@ export function registerDockerHandlers(ipcMain: IpcMain): void {
 
   ipcMain.handle("docker:runtimeConfig", async () => {
     return getDockerRuntimeConfig()
+  })
+
+  ipcMain.handle("docker:selectMountPath", async (_event, currentPath?: string) => {
+    const result = await dialog.showOpenDialog({
+      properties: ["openDirectory", "createDirectory"],
+      title: "Select Mount Folder",
+      message: "Choose a folder to mount into the container",
+      defaultPath: currentPath || undefined
+    })
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return null
+    }
+
+    return result.filePaths[0]
   })
 
   ipcMain.handle("docker:mountFiles", async () => {

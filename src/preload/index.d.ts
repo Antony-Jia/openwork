@@ -111,6 +111,7 @@ interface CustomAPI {
     exit: () => Promise<DockerSessionStatus>
     restart: () => Promise<DockerSessionStatus>
     runtimeConfig: () => Promise<{ config: DockerConfig | null; containerId: string | null }>
+    selectMountPath: (currentPath?: string) => Promise<string | null>
     mountFiles: () => Promise<{
       success: boolean
       files: Array<{

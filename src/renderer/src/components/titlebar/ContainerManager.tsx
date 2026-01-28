@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { Box, Trash2, Plus } from "lucide-react"
+import { Box, Trash2, Plus, FolderOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -148,6 +148,15 @@ export function ContainerManager({ threadId: _threadId }: ContainerManagerProps)
     setPorts((prev) => prev.map((port, i) => (i === index ? { ...port, ...updates } : port)))
   }
 
+  const handleSelectMountPath = async (index: number): Promise<void> => {
+    if (!window.api?.docker?.selectMountPath) return
+    const currentPath = mounts[index]?.hostPath || undefined
+    const selectedPath = await window.api.docker.selectMountPath(currentPath)
+    if (selectedPath) {
+      updateMount(index, { hostPath: selectedPath })
+    }
+  }
+
   const removeMount = (index: number): void => {
     setMounts((prev) => prev.filter((_, i) => i !== index))
   }
@@ -270,14 +279,25 @@ export function ContainerManager({ threadId: _threadId }: ContainerManagerProps)
                   </Button>
                 </div>
                 {mounts.map((mount, index) => (
-                  <div key={`${mount.containerPath}-${index}`} className="grid grid-cols-12 gap-2">
+                  <div key={`mount-${index}`} className="grid grid-cols-12 gap-2">
                     <Input
-                      className="col-span-5"
+                      className="col-span-4"
                       value={mount.hostPath}
                       onChange={(e) => updateMount(index, { hostPath: e.target.value })}
                       placeholder={t("container.host_path")}
                       disabled={sessionStatus.running}
                     />
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="col-span-1"
+                      onClick={() => void handleSelectMountPath(index)}
+                      title={t("container.select_path")}
+                      aria-label={t("container.select_path")}
+                      disabled={sessionStatus.running}
+                    >
+                      <FolderOpen className="size-3.5" />
+                    </Button>
                     <Input
                       className="col-span-4"
                       value={mount.containerPath}
@@ -323,10 +343,7 @@ export function ContainerManager({ threadId: _threadId }: ContainerManagerProps)
                   </Button>
                 </div>
                 {ports.map((port, index) => (
-                  <div
-                    key={`${port.host}-${port.container}-${index}`}
-                    className="grid grid-cols-12 gap-2"
-                  >
+                  <div key={`port-${index}`} className="grid grid-cols-12 gap-2">
                     <Input
                       className="col-span-3"
                       value={port.host ? String(port.host) : ""}

@@ -260,6 +260,9 @@ const api = {
     runtimeConfig: (): Promise<unknown> => {
       return ipcRenderer.invoke("docker:runtimeConfig")
     },
+    selectMountPath: (currentPath?: string): Promise<string | null> => {
+      return ipcRenderer.invoke("docker:selectMountPath", currentPath)
+    },
     mountFiles: (): Promise<unknown> => {
       return ipcRenderer.invoke("docker:mountFiles")
     }
