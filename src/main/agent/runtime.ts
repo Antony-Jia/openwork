@@ -1,8 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { createDeepAgent, toolRetryMiddleware } from "deepagents"
+import { createDeepAgent } from "deepagents"
+import { toolRetryMiddleware, createMiddleware } from "langchain"
 import { getThreadCheckpointPath } from "../storage"
 import { getProviderConfig } from "../provider-config"
 import { ChatOpenAI } from "@langchain/openai"
+import { ToolMessage } from "@langchain/core/messages"
 import { SqlJsSaver } from "../checkpointer/sqljs-saver"
 import { LocalSandbox } from "./local-sandbox"
 import { listSubagents } from "../subagents"
@@ -63,6 +65,58 @@ function normalizeDockerWorkspace(config: DockerConfig): string {
     return normalized.startsWith("/") ? normalized : `/${normalized}`
   }
   return "/workspace"
+}
+
+function getErrorMessage(error: unknown): string {
+  if (typeof error === "string") {
+    return error
+  }
+
+  if (error instanceof Error) {
+    return error.message || error.name
+  }
+
+  if (error && typeof error === "object") {
+    if ("message" in error && typeof (error as { message?: unknown }).message === "string") {
+      return (error as { message: string }).message
+    }
+
+    try {
+      return JSON.stringify(error)
+    } catch {
+      return Object.prototype.toString.call(error)
+    }
+  }
+
+  return String(error)
+}
+
+export function createToolErrorHandlingMiddleware() {
+  return createMiddleware({
+    name: "toolErrorHandlingMiddleware",
+    wrapToolCall: async (request, handler) => {
+      try {
+        // Execute the tool through the provided handler
+        const result = await handler(request)
+        return result
+      } catch (error) {
+        // Safely extract the tool name
+        const toolName = String(request.tool.name || "unknown")
+        const toolCallId = request.toolCall.id || "unknown"
+
+        // Convert the caught error into a readable string
+        const errorMessage = getErrorMessage(error)
+
+        // Return a ToolMessage with error details instead of throwing an exception
+        // This prevents the agent execution from being interrupted by the error
+        return new ToolMessage({
+          content: `TOOL_ERROR: The tool "${toolName}" failed with the following error:\n\nERROR_MESSAGE: ${errorMessage}\n\nINSTRUCTIONS: Please review the error and retry the operation with corrected parameters or try an alternative approach.`,
+          tool_call_id: toolCallId,
+          name: toolName
+        })
+      }
+    }
+  })
 }
 
 // Per-thread checkpointer cache
@@ -315,6 +369,7 @@ The workspace root is: ${effectiveWorkspace}`
     initialDelayMs: 500,
     backoffFactor: 2.0
   })
+  const toolErrorHandlingMiddleware = createToolErrorHandlingMiddleware()
 
   const agent = createDeepAgent({
     model,
@@ -328,8 +383,8 @@ The workspace root is: ${effectiveWorkspace}`
     skills: enabledSkillPaths,
     // Require human approval for all shell commands
     interruptOn: disableApprovals ? undefined : { execute: true },
-    // Add retry middleware for tool call failures
-    middleware: [retryMiddleware]
+    // Add retry + error handling middleware for tool call failures
+    middleware: [toolErrorHandlingMiddleware, retryMiddleware]
   } as Parameters<typeof createDeepAgent>[0])
 
   console.log("[Runtime] Deep agent created with LocalSandbox at:", workspacePath)
