@@ -68,10 +68,19 @@ export const useAppStore = create<AppState>((set, get) => ({
   createThread: async (metadata?: Record<string, unknown>) => {
     const nextMetadata = metadata ?? { mode: "default" }
     const thread = await window.api.threads.create(nextMetadata)
-    set((state) => ({
-      threads: [thread, ...state.threads],
-      currentThreadId: thread.thread_id
-    }))
+    // Note: broadcastThreadsChanged() is called by the backend, which triggers loadThreads()
+    // We only set currentThreadId here to avoid duplicate threads in the list
+    set((state) => {
+      // Check if thread already exists (from loadThreads triggered by broadcastThreadsChanged)
+      const exists = state.threads.some((t) => t.thread_id === thread.thread_id)
+      if (exists) {
+        return { currentThreadId: thread.thread_id }
+      }
+      return {
+        threads: [thread, ...state.threads],
+        currentThreadId: thread.thread_id
+      }
+    })
     return thread
   },
 

@@ -21,7 +21,8 @@ const defaultSettings: AppSettings = {
       user: "",
       pass: ""
     },
-    taskTag: "<OpenworkTask>"
+    taskTag: "<OpenworkTask>",
+    pollIntervalSec: 60
   },
   defaultWorkspacePath: "",
   dockerConfig: {

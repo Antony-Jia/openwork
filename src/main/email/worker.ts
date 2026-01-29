@@ -1,12 +1,11 @@
 import { v4 as uuid } from "uuid"
 import { HumanMessage } from "@langchain/core/messages"
-import { createAgentRuntime, closeCheckpointer } from "../agent/runtime"
-import { deleteThreadCheckpoint } from "../storage"
+import { createAgentRuntime } from "../agent/runtime"
 import { getThread, createThread as dbCreateThread, updateThread as dbUpdateThread } from "../db"
 import { getSettings } from "../settings"
 import { ensureDockerRunning, getDockerRuntimeConfig } from "../docker/session"
-import { extractAssistantChunkText } from "../agent/stream-utils"
-import { broadcastThreadsChanged } from "../ipc/events"
+import { extractAssistantChunkText, extractContent } from "../agent/stream-utils"
+import { broadcastThreadHistoryUpdated, broadcastThreadsChanged } from "../ipc/events"
 import {
   buildEmailSubject,
   fetchUnreadEmailTasks,
@@ -15,33 +14,22 @@ import {
   sendEmail,
   stripEmailSubjectPrefix
 } from "./service"
+import { buildEmailModePrompt } from "./prompt"
 import type { EmailTask } from "./service"
 
 let pollInterval: NodeJS.Timeout | null = null
 let polling = false
 const processingTaskIds = new Set<string>()
+let currentIntervalMs: number | null = null
 
 function buildTaskPrompt(task: EmailTask): string {
-  return [`Email task from ${task.from}:`, `Subject: ${task.subject}`, "", task.text].join("\n")
-}
-
-function buildStartEmailBody(threadId: string): string {
-  return [
-    "Started a new Openwork task.",
-    "",
-    `Work ID: ${threadId}`,
-    "Reply to this email to continue the task.",
-    ""
-  ].join("\n")
+  const body = task.text?.trim() ?? ""
+  if (body) return body
+  return stripEmailSubjectPrefix(task.subject) || task.subject || ""
 }
 
 function buildErrorEmailBody(title: string, details: string): string {
   return ["Openwork email task failed.", "", title, "", details, ""].join("\n")
-}
-
-async function resetThreadCheckpoint(threadId: string): Promise<void> {
-  await closeCheckpointer(threadId)
-  deleteThreadCheckpoint(threadId)
 }
 
 async function runAgentToSummary({
@@ -62,7 +50,9 @@ async function runAgentToSummary({
     threadId,
     workspacePath,
     dockerConfig,
-    dockerContainerId
+    dockerContainerId,
+    extraSystemPrompt: buildEmailModePrompt(threadId),
+    forceToolNames: ["send_email"]
   })
 
   const humanMessage = new HumanMessage(message)
@@ -76,6 +66,7 @@ async function runAgentToSummary({
   )
 
   let lastAssistant = ""
+  let lastAssistantFromValues = ""
   for await (const chunk of stream) {
     const [mode, data] = chunk as [string, unknown]
     if (mode === "messages") {
@@ -88,9 +79,25 @@ async function runAgentToSummary({
         }
       }
     }
+    if (mode === "values") {
+      const state = data as { messages?: Array<{ id?: unknown; kwargs?: { content?: unknown } }> }
+      if (Array.isArray(state.messages)) {
+        for (const msg of state.messages) {
+          const classId = Array.isArray(msg.id) ? msg.id : []
+          const className = classId[classId.length - 1] || ""
+          if (!className.includes("AI")) continue
+          const content = extractContent(msg.kwargs?.content)
+          if (content) {
+            lastAssistantFromValues = content
+          }
+        }
+      }
+    }
   }
 
-  return lastAssistant.trim()
+  const summary = lastAssistant.trim()
+  if (summary) return summary
+  return lastAssistantFromValues.trim()
 }
 
 async function processStartWorkTask(task: EmailTask, defaultWorkspacePath: string): Promise<void> {
@@ -106,27 +113,13 @@ async function processStartWorkTask(task: EmailTask, defaultWorkspacePath: strin
   })
   broadcastThreadsChanged()
 
-  try {
-    await sendEmail({
-      subject: buildEmailSubject(threadId, "StartWork"),
-      text: buildStartEmailBody(threadId)
-    })
-  } catch (error) {
-    console.warn("[EmailWorker] Failed to send start email:", error)
-  }
-
   const taskPrompt = buildTaskPrompt(task)
-  const summary = await runAgentToSummary({
+  await runAgentToSummary({
     threadId,
     workspacePath: defaultWorkspacePath,
     message: taskPrompt
   })
-
-  const summaryText = summary || "Task completed. See Openwork for details."
-  await sendEmail({
-    subject: buildEmailSubject(threadId, "Completed - StartWork"),
-    text: summaryText
-  })
+  broadcastThreadHistoryUpdated(threadId)
 }
 
 async function processReplyTask(task: EmailTask, defaultWorkspacePath: string | null): Promise<void> {
@@ -152,20 +145,13 @@ async function processReplyTask(task: EmailTask, defaultWorkspacePath: string | 
     throw new Error("No workspace linked to this task.")
   }
 
-  await resetThreadCheckpoint(threadId)
-
   const taskPrompt = buildTaskPrompt(task)
-  const summary = await runAgentToSummary({
+  await runAgentToSummary({
     threadId,
     workspacePath,
     message: taskPrompt
   })
-  const summaryText = summary || "Task completed. See Openwork for details."
-  const cleanedSubject = stripEmailSubjectPrefix(task.subject)
-  await sendEmail({
-    subject: buildEmailSubject(threadId, `Completed - ${cleanedSubject || task.subject}`),
-    text: summaryText
-  })
+  broadcastThreadHistoryUpdated(threadId)
 }
 
 async function processEmailTask(task: EmailTask, defaultWorkspacePath: string | null): Promise<void> {
@@ -233,11 +219,32 @@ async function pollOnce(): Promise<void> {
   }
 }
 
-export function startEmailPolling(intervalMs = 60_000): void {
-  if (pollInterval) return
+function normalizePollIntervalSec(value?: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return 60
+  }
+  return Math.max(1, Math.round(value))
+}
+
+function getPollIntervalMsFromSettings(): number {
+  const settings = getSettings()
+  const intervalSec = normalizePollIntervalSec(settings.email?.pollIntervalSec)
+  return intervalSec * 1000
+}
+
+export function startEmailPolling(intervalMs?: number): void {
+  const resolvedMs =
+    typeof intervalMs === "number" && Number.isFinite(intervalMs) && intervalMs > 0
+      ? intervalMs
+      : getPollIntervalMsFromSettings()
+  if (pollInterval) {
+    if (currentIntervalMs === resolvedMs) return
+    stopEmailPolling()
+  }
+  currentIntervalMs = resolvedMs
   pollInterval = setInterval(() => {
     void pollOnce()
-  }, intervalMs)
+  }, resolvedMs)
   void pollOnce()
 }
 
@@ -246,4 +253,13 @@ export function stopEmailPolling(): void {
     clearInterval(pollInterval)
     pollInterval = null
   }
+  currentIntervalMs = null
+}
+
+export function updateEmailPollingInterval(intervalSec?: number): void {
+  const normalizedSec = normalizePollIntervalSec(intervalSec)
+  const nextMs = normalizedSec * 1000
+  if (pollInterval && currentIntervalMs === nextMs) return
+  stopEmailPolling()
+  startEmailPolling(nextMs)
 }

@@ -92,12 +92,16 @@ export class ElectronIPCTransport implements UseStreamTransport {
   // Track completed tool calls by name for HITL matching
   private completedToolCallsByName: Map<string, CompletedToolCall[]> = new Map()
 
+  // Track tool calls already emitted as message events
+  private emittedToolCalls: Set<string> = new Set()
+
   async stream(payload: StreamPayload): Promise<AsyncGenerator<StreamEvent>> {
     // Reset state for new stream
     this.currentMessageId = null
     this.activeSubagents.clear()
     this.accumulatedToolCalls.clear()
     this.completedToolCallsByName.clear()
+    this.emittedToolCalls.clear()
     // Extract thread ID and model ID from config
     const threadId = payload.config?.configurable?.thread_id
     const modelId = payload.config?.configurable?.model_id as string | undefined
@@ -452,7 +456,10 @@ export class ElectronIPCTransport implements UseStreamTransport {
 
         // Handle tool call chunks (streaming) - these have args as strings
         if (kwargs.tool_call_chunks?.length) {
-          const subagentEvents = this.processToolCallChunks(kwargs.tool_call_chunks)
+          const subagentEvents = this.processToolCallChunks(
+            kwargs.tool_call_chunks,
+            this.currentMessageId
+          )
           events.push(...subagentEvents)
 
           events.push({
@@ -733,7 +740,8 @@ export class ElectronIPCTransport implements UseStreamTransport {
    * Tool calls are streamed incrementally, so we accumulate args until we have enough
    */
   private processToolCallChunks(
-    chunks: Array<{ id?: string; name?: string; args?: string }>
+    chunks: Array<{ id?: string; name?: string; args?: string }>,
+    messageId: string | null
   ): StreamEvent[] {
     const events: StreamEvent[] = []
 
@@ -770,6 +778,28 @@ export class ElectronIPCTransport implements UseStreamTransport {
         } catch {
           // Args not complete yet, continue accumulating
         }
+      }
+
+      // Emit tool call as a message once args can be parsed
+      try {
+        const args = JSON.parse(accumulated.args)
+        if (chunk.id && messageId && !this.emittedToolCalls.has(chunk.id)) {
+          events.push({
+            event: "messages",
+            data: [
+              {
+                id: messageId,
+                type: "ai",
+                content: "",
+                tool_calls: [{ id: chunk.id, name: accumulated.name, args }]
+              },
+              { langgraph_node: "agent" }
+            ]
+          })
+          this.emittedToolCalls.add(chunk.id)
+        }
+      } catch {
+        // Args not complete yet, continue accumulating
       }
     }
 

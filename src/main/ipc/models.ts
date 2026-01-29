@@ -15,6 +15,7 @@ import type {
 import { startWatching, stopWatching } from "../services/workspace-watcher"
 import { getOpenworkDir, getApiKey, setApiKey, deleteApiKey, hasApiKey } from "../storage"
 import { getProviderConfig, setProviderConfig } from "../provider-config"
+import { buildEmailSubject, sendEmail } from "../email/service"
 
 // Store for non-sensitive settings only (no encryption needed)
 const store = new Store({
@@ -390,11 +391,33 @@ export function registerModelHandlers(ipcMain: IpcMain): void {
       const thread = getThread(threadId)
       if (thread) {
         const metadata = thread.metadata ? JSON.parse(thread.metadata) : {}
+        const isEmailThread = metadata.mode === "email"
+        const alreadyNotified = metadata.emailWorkspaceNotified === true
         metadata.workspacePath = selectedPath
         updateThread(threadId, { metadata: JSON.stringify(metadata) })
 
         // Start watching the new workspace
         startWatching(threadId, selectedPath)
+
+        if (isEmailThread && !alreadyNotified) {
+          try {
+            await sendEmail({
+              subject: buildEmailSubject(threadId, "Workspace Linked"),
+              text: [
+                "Workspace linked for this Openwork email task.",
+                "",
+                `Work ID: ${threadId}`,
+                `Workspace: ${selectedPath}`,
+                "Reply to this email to continue the task.",
+                ""
+              ].join("\n")
+            })
+            metadata.emailWorkspaceNotified = true
+            updateThread(threadId, { metadata: JSON.stringify(metadata) })
+          } catch (emailError) {
+            console.warn("[Workspace] Failed to send workspace email:", emailError)
+          }
+        }
       }
     } else {
       // Fallback to global

@@ -171,54 +171,58 @@ export function ToolsManager(): React.JSX.Element {
                         </div>
                       </div>
 
-                      <div className="space-y-2">
-                        <label className="text-xs text-muted-foreground">
-                          {tool.keyLabel || t("tools.key")}
-                        </label>
-                        <div className="relative">
-                          <Input
-                            type={showKeys[tool.name] ? "text" : "password"}
-                            value={keyInputs[tool.name] ?? ""}
-                            onChange={(e) => handleKeyChange(tool.name, e.target.value)}
-                            placeholder={t("tools.key_placeholder")}
-                            className="pr-10"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => toggleShowKey(tool.name)}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                          >
-                            {showKeys[tool.name] ? (
-                              <EyeOff className="size-4" />
-                            ) : (
-                              <Eye className="size-4" />
-                            )}
-                          </button>
+                      {tool.requiresKey !== false && (
+                        <div className="space-y-2">
+                          <label className="text-xs text-muted-foreground">
+                            {tool.keyLabel || t("tools.key")}
+                          </label>
+                          <div className="relative">
+                            <Input
+                              type={showKeys[tool.name] ? "text" : "password"}
+                              value={keyInputs[tool.name] ?? ""}
+                              onChange={(e) => handleKeyChange(tool.name, e.target.value)}
+                              placeholder={t("tools.key_placeholder")}
+                              className="pr-10"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => toggleShowKey(tool.name)}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              {showKeys[tool.name] ? (
+                                <EyeOff className="size-4" />
+                              ) : (
+                                <Eye className="size-4" />
+                              )}
+                            </button>
+                          </div>
                         </div>
-                      </div>
+                      )}
 
                       {!tool.enabled && (
                         <div className="text-xs text-muted-foreground">
                           {t("tools.disabled_hint")}
                         </div>
                       )}
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleSave(tool, true)}
-                          disabled={saving[tool.name]}
-                        >
-                          {t("tools.clear")}
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => handleSave(tool)}
-                          disabled={saving[tool.name]}
-                        >
-                          {t("tools.save")}
-                        </Button>
-                      </div>
+                      {tool.requiresKey !== false && (
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleSave(tool, true)}
+                            disabled={saving[tool.name]}
+                          >
+                            {t("tools.clear")}
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => handleSave(tool)}
+                            disabled={saving[tool.name]}
+                          >
+                            {t("tools.save")}
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

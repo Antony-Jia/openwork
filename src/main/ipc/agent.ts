@@ -8,7 +8,7 @@ import { createAgentRuntime, closeCheckpointer } from "../agent/runtime"
 import { getThread, updateThread as dbUpdateThread } from "../db"
 import { deleteThreadCheckpoint, hasThreadCheckpoint } from "../storage"
 import { getSettings } from "../settings"
-import { buildEmailSubject, sendEmail } from "../email/service"
+import { buildEmailModePrompt } from "../email/prompt"
 import { ensureDockerRunning, getDockerRuntimeConfig } from "../docker/session"
 import { extractAssistantChunkText } from "../agent/stream-utils"
 import { appendRalphLogEntry } from "../ralph-log"
@@ -126,6 +126,8 @@ async function streamAgentRun({
   dockerConfig,
   dockerContainerId,
   disableApprovals,
+  extraSystemPrompt,
+  forceToolNames,
   message,
   window,
   channel,
@@ -138,6 +140,8 @@ async function streamAgentRun({
   dockerConfig?: DockerConfig | null
   dockerContainerId?: string | null
   disableApprovals?: boolean
+  extraSystemPrompt?: string
+  forceToolNames?: string[]
   message: string
   window: BrowserWindow
   channel: string
@@ -154,7 +158,9 @@ async function streamAgentRun({
     modelId,
     dockerConfig,
     dockerContainerId,
-    disableApprovals
+    disableApprovals,
+    extraSystemPrompt,
+    forceToolNames
   })
 
   const humanMessage = new HumanMessage(message)
@@ -585,16 +591,7 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
       }
 
       if (mode === "email") {
-        try {
-          await sendEmail({
-            subject: buildEmailSubject(threadId, `User Message - ${thread?.title || threadId}`),
-            text: message
-          })
-        } catch (emailError) {
-          console.warn("[Agent] Failed to send outgoing email:", emailError)
-        }
-
-        const summary = await streamAgentRun({
+        await streamAgentRun({
           threadId,
           workspacePath: normalizedWorkspace,
           modelId,
@@ -603,18 +600,10 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
           message,
           window,
           channel,
-          abortController
+          abortController,
+          extraSystemPrompt: buildEmailModePrompt(threadId),
+          forceToolNames: ["send_email"]
         })
-
-        const summaryText = summary || "任务已完成。详情请查看 Openwork。"
-        try {
-          await sendEmail({
-            subject: buildEmailSubject(threadId, `Completed - ${thread?.title || threadId}`),
-            text: summaryText
-          })
-        } catch (emailError) {
-          console.warn("[Agent] Failed to send completion email:", emailError)
-        }
 
         if (!abortController.signal.aborted) {
           window.webContents.send(channel, { type: "done" })

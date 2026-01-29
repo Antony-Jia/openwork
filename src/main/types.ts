@@ -200,6 +200,7 @@ export interface ToolDefinition {
   description: string
   keyLabel?: string
   envVar?: string
+  requiresKey?: boolean
 }
 
 export interface ToolInfo extends ToolDefinition {
@@ -241,6 +242,7 @@ export interface EmailSettings {
   smtp: EmailSmtpConfig
   imap: EmailImapConfig
   taskTag: string
+  pollIntervalSec: number
 }
 
 export interface AppSettings {

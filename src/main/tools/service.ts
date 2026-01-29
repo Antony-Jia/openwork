@@ -3,9 +3,15 @@ import { toolDefinitions, toolInstanceMap } from "./registry"
 import { getRunningMcpToolInstanceMap } from "../mcp/service"
 import type { ToolInfo } from "../types"
 import { logEntry, logExit, summarizeList } from "../logging"
+import { canSendEmail } from "../email/service"
 
 function toToolInfo(definition: (typeof toolDefinitions)[number]): ToolInfo {
-  const hasKey = !!resolveToolKey(definition.name, definition.envVar)
+  const hasKey =
+    definition.name === "send_email"
+      ? canSendEmail()
+      : definition.requiresKey === false
+        ? true
+        : !!resolveToolKey(definition.name, definition.envVar)
   const enabled = isToolEnabled(definition.name)
   return {
     ...definition,

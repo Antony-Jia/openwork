@@ -49,6 +49,7 @@ export function SettingsMenu(_props: SettingsMenuProps): React.JSX.Element {
   const [imapSecure, setImapSecure] = useState(true)
   const [imapUser, setImapUser] = useState("")
   const [imapPass, setImapPass] = useState("")
+  const [imapPollIntervalSec, setImapPollIntervalSec] = useState("60")
   const [taskTag, setTaskTag] = useState("<OpenworkTask>")
   const [defaultWorkspacePath, setDefaultWorkspacePath] = useState("")
 
@@ -87,6 +88,7 @@ export function SettingsMenu(_props: SettingsMenuProps): React.JSX.Element {
           setImapUser(settings.email?.imap?.user || "")
           setImapPass(settings.email?.imap?.pass || "")
           setTaskTag(settings.email?.taskTag || "<OpenworkTask>")
+          setImapPollIntervalSec(String(settings.email?.pollIntervalSec ?? 60))
         }
       } catch (e) {
         console.error("Failed to load provider config:", e)
@@ -99,6 +101,7 @@ export function SettingsMenu(_props: SettingsMenuProps): React.JSX.Element {
     const iterationsValue = Number.parseInt(ralphIterations, 10)
     const smtpPortValue = Number.parseInt(smtpPort, 10)
     const imapPortValue = Number.parseInt(imapPort, 10)
+    const imapPollIntervalValue = Number.parseInt(imapPollIntervalSec, 10)
     const toList = emailTo
       .split(/[,\n]/)
       .map((entry) => entry.trim())
@@ -128,7 +131,11 @@ export function SettingsMenu(_props: SettingsMenuProps): React.JSX.Element {
               user: imapUser.trim(),
               pass: imapPass
             },
-            taskTag: taskTag.trim() || "<OpenworkTask>"
+            taskTag: taskTag.trim() || "<OpenworkTask>",
+            pollIntervalSec:
+              Number.isFinite(imapPollIntervalValue) && imapPollIntervalValue > 0
+                ? imapPollIntervalValue
+                : 60
           }
         }
       })
@@ -153,6 +160,7 @@ export function SettingsMenu(_props: SettingsMenuProps): React.JSX.Element {
     imapSecure,
     imapUser,
     imapPass,
+    imapPollIntervalSec,
     taskTag
   ])
 
@@ -570,6 +578,23 @@ export function SettingsMenu(_props: SettingsMenuProps): React.JSX.Element {
                   />
                   <div className="text-[10px] text-muted-foreground/70">
                     {t("settings.email.task_tag_hint")}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] text-muted-foreground block">
+                    {t("settings.email.poll_interval")}
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={imapPollIntervalSec}
+                    onChange={(e) => setImapPollIntervalSec(e.target.value)}
+                    placeholder="60"
+                    className="w-full h-7 px-2 text-xs bg-muted/50 border border-border/50 rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                  <div className="text-[10px] text-muted-foreground/70">
+                    {t("settings.email.poll_interval_hint")}
                   </div>
                 </div>
                 </div>

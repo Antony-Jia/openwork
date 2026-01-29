@@ -40,6 +40,32 @@ function getEmailSettings(): EmailSettings {
   return settings.email
 }
 
+function normalizeEmail(value?: string | null): string {
+  return value?.trim().toLowerCase() ?? ""
+}
+
+function isSelfSender(parsed: { from?: { text?: string; value?: Array<{ address?: string | null }> } }, settings: EmailSettings): boolean {
+  const selfAddresses = [settings.from, settings.smtp.user, settings.imap.user]
+    .map((addr) => normalizeEmail(addr))
+    .filter(Boolean)
+
+  if (selfAddresses.length === 0) return false
+
+  const fromAddresses =
+    parsed.from?.value?.map((entry) => normalizeEmail(entry.address))?.filter(Boolean) ?? []
+
+  if (fromAddresses.some((addr) => selfAddresses.includes(addr))) {
+    return true
+  }
+
+  const fromText = normalizeEmail(parsed.from?.text)
+  if (fromText && selfAddresses.some((addr) => fromText.includes(addr))) {
+    return true
+  }
+
+  return false
+}
+
 function ensureEmailEnabled(settings: EmailSettings): void {
   if (!settings.enabled) {
     throw new Error("Email integration is disabled.")
@@ -55,12 +81,22 @@ function ensureEmailEnabled(settings: EmailSettings): void {
   }
 }
 
+export function canSendEmail(): boolean {
+  const settings = getEmailSettings()
+  if (!settings.enabled) return false
+  if (!settings.smtp.host || !settings.smtp.user || !settings.smtp.pass) return false
+  if (!settings.from || settings.to.length === 0) return false
+  return true
+}
+
 export async function sendEmail({
   subject,
-  text
+  text,
+  attachments
 }: {
   subject: string
   text: string
+  attachments?: Array<{ path: string; filename?: string; contentType?: string }>
 }): Promise<void> {
   const settings = getEmailSettings()
   ensureEmailEnabled(settings)
@@ -79,7 +115,8 @@ export async function sendEmail({
     from: settings.from,
     to: settings.to.join(", "),
     subject,
-    text
+    text,
+    attachments
   })
 }
 
@@ -138,28 +175,41 @@ export async function fetchUnreadEmailTasks(threadId?: string): Promise<EmailTas
 
     for await (const message of client.fetch(uids as number[], { source: true, envelope: true })) {
       if (!message.source) continue
-      const parsed = await simpleParser(message.source)
-      const subject = parsed.subject ?? ""
-      if (!subject.toLowerCase().includes(tag.toLowerCase())) {
-        continue
-      }
-      if (threadId) {
-        const extracted = extractThreadIdFromSubject(subject)
-        if (extracted !== threadId) {
+      try {
+        const parsed = await simpleParser(message.source)
+        const subject = parsed.subject ?? ""
+        if (!subject.toLowerCase().includes(tag.toLowerCase())) {
           continue
         }
-      }
+        if (isSelfSender(parsed, settings)) {
+          continue
+        }
+        if (threadId) {
+          const extracted = extractThreadIdFromSubject(subject)
+          if (extracted !== threadId) {
+            continue
+          }
+        }
 
-      const from = parsed.from?.text ?? ""
-      const text = parsed.text ?? ""
-      const extractedThreadId = extractThreadIdFromSubject(subject)
-      tasks.push({
-        id: String(message.uid),
-        subject,
-        from,
-        text,
-        threadId: extractedThreadId
-      })
+        const from = parsed.from?.text ?? ""
+        const text = parsed.text ?? ""
+        const extractedThreadId = extractThreadIdFromSubject(subject)
+        tasks.push({
+          id: String(message.uid),
+          subject,
+          from,
+          text,
+          threadId: extractedThreadId
+        })
+      } finally {
+        if (message.uid) {
+          try {
+            await client.messageFlagsAdd(message.uid, ["\\Seen"])
+          } catch (markError) {
+            console.warn("[EmailService] Failed to mark email as read:", markError)
+          }
+        }
+      }
     }
   } finally {
     try {

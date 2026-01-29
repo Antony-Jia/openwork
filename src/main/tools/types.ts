@@ -4,6 +4,7 @@ export interface ToolDefinition {
   description: string
   keyLabel?: string
   envVar?: string
+  requiresKey?: boolean
 }
 
 export interface ToolInfo extends ToolDefinition {

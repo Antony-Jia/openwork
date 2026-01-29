@@ -251,14 +251,26 @@ export interface CreateAgentRuntimeOptions {
   dockerContainerId?: string | null
   /** Disable human-in-the-loop approvals */
   disableApprovals?: boolean
+  /** Optional extra system prompt to append */
+  extraSystemPrompt?: string
+  /** Optional tools to force-inject by name */
+  forceToolNames?: string[]
 }
 
 // Create agent runtime with configured model and checkpointer
 export type AgentRuntime = ReturnType<typeof createDeepAgent>
 
 export async function createAgentRuntime(options: CreateAgentRuntimeOptions) {
-  const { threadId, modelId, workspacePath, dockerConfig, dockerContainerId, disableApprovals } =
-    options
+  const {
+    threadId,
+    modelId,
+    workspacePath,
+    dockerConfig,
+    dockerContainerId,
+    disableApprovals,
+    extraSystemPrompt,
+    forceToolNames
+  } = options
 
   if (!threadId) {
     throw new Error("Thread ID is required for checkpointing.")
@@ -302,7 +314,9 @@ export async function createAgentRuntime(options: CreateAgentRuntimeOptions) {
   const now = new Date()
   const currentTimePrompt = `Current time: ${now.toISOString()}\nCurrent year: ${now.getFullYear()}`
   const systemPrompt =
-    getSystemPrompt(effectiveWorkspace, dockerConfig || undefined) + `\n\n${currentTimePrompt}`
+    getSystemPrompt(effectiveWorkspace, dockerConfig || undefined) +
+    `\n\n${currentTimePrompt}` +
+    (extraSystemPrompt ? `\n\n${extraSystemPrompt}` : "")
 
   const subagents = listSubagents()
     .filter((agent) => agent.enabled !== false)
@@ -355,6 +369,12 @@ The workspace root is: ${effectiveWorkspace}`
   const mcpToolInfos = listRunningMcpTools()
   const mcpToolNames = mcpToolInfos.map((toolInfo) => toolInfo.fullName)
   const mcpTools = await getRunningMcpToolInstances()
+  const forcedTools = resolveToolInstancesByName(forceToolNames) ?? []
+  const enabledTools = [...getEnabledToolInstances(), ...mcpTools, ...dockerTools]
+  const tools = [...enabledTools]
+  for (const tool of forcedTools) {
+    if (!tools.includes(tool)) tools.push(tool)
+  }
 
   logEntry("Runtime", "tools.inject", {
     ...summarizeList(enabledToolNames),
@@ -379,7 +399,7 @@ The workspace root is: ${effectiveWorkspace}`
     checkpointer,
     backend,
     systemPrompt: systemPrompt + "\n\n" + filesystemSystemPrompt,
-    tools: [...getEnabledToolInstances(), ...mcpTools, ...dockerTools],
+    tools,
     // Custom filesystem prompt for absolute paths (requires deepagents update)
     // filesystemSystemPrompt,
     subagents,

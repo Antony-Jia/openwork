@@ -16,14 +16,14 @@ openwork 是 [deepagentsjs](https://github.com/langchain-ai/deepagentsjs) 的桌
 
 ## 本次大规模功能更新（重点）
 
-- **设置中心升级**：新增 Provider 简化配置（Ollama / OpenAI-Compatible）、RALPH 迭代次数、邮件 SMTP/IMAP 等设置项，统一保存至本地配置文件。@src/main/settings.ts#1-90 @src/main/storage.ts#1-153 @src/renderer/src/components/titlebar/SettingsMenu.tsx#17-158
+- **设置中心升级**：新增 Provider 简化配置（Ollama / OpenAI-Compatible）、RALPH 迭代次数、邮件 SMTP/IMAP 与 IMAP 拉取间隔等设置项，统一保存至本地配置文件。@src/main/settings.ts#1-90 @src/main/storage.ts#1-153 @src/renderer/src/components/titlebar/SettingsMenu.tsx#17-158
 - **Skills 技能管理**：支持在 `.openwork/skills` 下创建、导入、编辑技能包（SKILL.md），并提供 UI 管理。@src/main/skills.ts#1-201 @src/renderer/src/components/titlebar/SkillsManager.tsx#1-258
 - **MCP 集成**：支持本地/远程 MCP Server，自动发现工具并注入到 Agent 与 Subagent 中，提供启动、停止与自动启动配置。@src/main/mcp/service.ts#1-356 @src/renderer/src/components/titlebar/McpManager.tsx#1-427
 - **Subagent 子智能体体系**：可配置 System Prompt、工具集合、MCP 工具、Middleware，并支持执行前打断（interruptOn）。@src/main/subagents.ts#1-123 @src/renderer/src/components/titlebar/SubagentManager.tsx#1-472
 - **Tools 工具中心**：统一管理工具的启用状态与密钥，支持环境变量回退；内置 `internet_search`（Tavily）。@src/main/tools/service.ts#1-89 @src/main/tools/internet-search.ts#1-76 @src/renderer/src/components/titlebar/ToolsManager.tsx#1-225
 - **Docker 模式**：为单线程配置容器镜像、挂载、资源与端口，提供容器执行与文件工具；仅 Windows 可用。@src/main/tools/docker-tools.ts#1-289 @src/renderer/src/components/titlebar/ContainerManager.tsx#1-338
 - **RALPH 模式**：基于 `ralph_plan.json` 的迭代执行流，/confirm 触发迭代，自动维护 progress.txt 与 `.ralph_done`。@src/main/ipc/agent.ts#105-372
-- **邮件模式**：SMTP 发件 + IMAP 任务拉取，自动摘要回传，并标记已读；按 `<OpenworkTask>` 标签筛选。@src/main/ipc/agent.ts#410-497 @src/main/email/service.ts#1-164
+- **邮件模式**：SMTP 发件 + IMAP 任务拉取，仅回传最终摘要并标记已读；按 `<OpenworkTask>` 标签筛选。@src/main/ipc/agent.ts#410-497 @src/main/email/service.ts#1-164
 
 ## 快速开始
 
@@ -53,7 +53,7 @@ npm run dev
 
 - **Provider 配置**：支持 Ollama 和 OpenAI-Compatible API（如 DeepSeek / OpenAI 兼容端点）。@src/renderer/src/components/titlebar/SettingsMenu.tsx#17-158
 - **RALPH 迭代次数**：控制每次执行的最大迭代轮次。@src/main/settings.ts#8-29
-- **邮件配置**：SMTP + IMAP、发件人与收件人列表。@src/main/types.ts#193-220
+- **邮件配置**：SMTP + IMAP、发件人与收件人列表、IMAP 拉取间隔。@src/main/types.ts#193-220
 
 ### 2) Skills（技能包）
 
@@ -95,7 +95,7 @@ npm run dev
 ### 8) 邮件模式
 
 - 新建邮件线程后，Agent 会：
-  - 将用户消息通过 SMTP 发出。
+  - 选择工作目录后发送一封 Workspace Linked 邮件（包含 Work ID）。
   - 处理后发送摘要邮件。
   - 通过 IMAP 拉取 `<OpenworkTask>` 主题邮件，处理后回传并标记已读。
 

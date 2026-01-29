@@ -6,6 +6,7 @@ import {
   Terminal,
   ListTodo,
   GitBranch,
+  Mail,
   ChevronDown,
   ChevronRight,
   CheckCircle2,
@@ -41,7 +42,8 @@ const TOOL_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
   download_file: File,
   cat_file: FileText,
   write_todos: ListTodo,
-  task: GitBranch
+  task: GitBranch,
+  send_email: Mail
 }
 
 const TOOL_LABELS: Record<string, string> = {
@@ -57,7 +59,8 @@ const TOOL_LABELS: Record<string, string> = {
   download_file: "Download File",
   cat_file: "Read File (Docker)",
   write_todos: "Update Tasks",
-  task: "Subagent Task"
+  task: "Subagent Task",
+  send_email: "Send Email"
 }
 
 // Tools whose results are shown in the UI panels and don't need verbose display

@@ -4,6 +4,7 @@
 
 ## 前置设置
 - 在 **Settings → Email** 配置 SMTP/IMAP、启用邮件集成。
+- 在 **Settings → Email** 设置 IMAP 拉取间隔（秒）。
 - 在 **Settings → General** 设置“默认工作目录”。  
   没有默认工作目录时，`startwork` 邮件会返回错误提示。
 
@@ -29,16 +30,17 @@
 
 系统收到后会：
 1) 自动创建一个 **Email Thread**  
-2) 发送一封 **开始工作邮件（包含 Work ID）**  
-3) 立即执行任务并回传 **完成邮件**
+2) 立即执行任务并回传 **完成邮件（主题包含 Work ID）**
+
+如果你在应用内新建 **邮件对话** 并选择了工作目录，系统会发送一封 **Workspace Linked** 邮件（包含 Work ID）。
 
 ## 继续任务（回复邮件）
-**方式：** 直接回复系统发出的“开始工作邮件”或“完成邮件”  
+**方式：** 直接回复系统发出的“完成邮件”  
 系统会从主题中解析 Work ID，并把回复正文作为新的任务输入。
 
 **系统发送的主题格式：**
 ```
-<OpenworkTask> [WORK_ID] StartWork
+<OpenworkTask> [WORK_ID] Workspace Linked
 <OpenworkTask> [WORK_ID] Completed - ...
 <OpenworkTask> [WORK_ID] Error - ...
 ```

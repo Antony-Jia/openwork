@@ -5,3 +5,9 @@ export function broadcastThreadsChanged(): void {
     win.webContents.send("threads:changed")
   }
 }
+
+export function broadcastThreadHistoryUpdated(threadId: string): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    win.webContents.send("thread:history-updated", threadId)
+  }
+}
