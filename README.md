@@ -115,7 +115,7 @@ OpenWork 正在快速演进，我们致力于打造最强大的本地 AI 工作�
 如果你想参与贡献或进行二次开发：
 
 ```bash
-git clone https://github.com/langchain-ai/openwork.git
+git clone https://github.com/Antony-Jia/OpenAnyWork.git
 cd openwork
 npm install
 
