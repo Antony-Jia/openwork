@@ -53,9 +53,9 @@ function createWindow(): void {
   mainWindow.on("ready-to-show", () => {
     mainWindow?.show()
     // Auto-open devtools to debug issues
-    if (mainWindow) {
-      mainWindow.webContents.openDevTools()
-    }
+    // if (mainWindow) {
+    //   mainWindow.webContents.openDevTools()
+    // }
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {

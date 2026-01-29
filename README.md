@@ -9,7 +9,13 @@
 
 **OpenWork** 是 [deepagentsjs](https://github.com/langchain-ai/deepagentsjs) 的桌面端旗舰工作台。它不仅仅是一个聊天窗口，而是一个面向“深度代理（Deep Agent）”的生产力工具。通过集成文件系统访问、Docker 隔离环境、MCP 协议、以及强大的子智能体体系，OpenWork 让 AI 能够真正地**在你的电脑上通过工具完成复杂任务**。
 
+> [!CAUTION]
+> **警告**：OpenWork 正处于内测阶段，功能尚未完善，使用时请谨慎。
+
 ![openwork screenshot](docs/screenshot.png)
+![openwork screenshot](docs/PixPin_2026-01-29_19-01-01.png)
+![openwork screenshot](docs/PixPin_2026-01-29_19-02-10.png)
+![openwork screenshot](docs/PixPin_2026-01-29_19-03-31.png)
 
 > [!CAUTION]
 > **安全提示**：OpenWork 设计为让 AI 直接操作本地文件系统并执行 Shell 命令。尽管我们提供了 Docker 隔离模式，但在非隔离环境下运行命令时，请务必仔细审查每一个操作。请仅在可信的工作区（Workspace）运行。
@@ -102,16 +108,7 @@ OpenWork 正在快速演进，我们致力于打造最强大的本地 AI 工作�
 
 ### 安装
 
-需要 Node.js 18+ 环境。
-
-```bash
-# 方式一：直接运行（推荐临时体验）
-npx openwork
-
-# 方式二：全局安装
-npm install -g openwork
-openwork
-```
+目前仅为内测版，请使用源码安装和启动。
 
 ### 源码开发
 
