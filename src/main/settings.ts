@@ -20,7 +20,8 @@ const defaultSettings: AppSettings = {
       secure: true,
       user: "",
       pass: ""
-    }
+    },
+    taskTag: "<OpenworkTask>"
   },
   defaultWorkspacePath: "",
   dockerConfig: {

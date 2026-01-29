@@ -49,6 +49,7 @@ export function SettingsMenu(_props: SettingsMenuProps): React.JSX.Element {
   const [imapSecure, setImapSecure] = useState(true)
   const [imapUser, setImapUser] = useState("")
   const [imapPass, setImapPass] = useState("")
+  const [taskTag, setTaskTag] = useState("<OpenworkTask>")
   const [defaultWorkspacePath, setDefaultWorkspacePath] = useState("")
 
   // Load current config on mount
@@ -85,6 +86,7 @@ export function SettingsMenu(_props: SettingsMenuProps): React.JSX.Element {
           setImapSecure(settings.email?.imap?.secure ?? true)
           setImapUser(settings.email?.imap?.user || "")
           setImapPass(settings.email?.imap?.pass || "")
+          setTaskTag(settings.email?.taskTag || "<OpenworkTask>")
         }
       } catch (e) {
         console.error("Failed to load provider config:", e)
@@ -125,7 +127,8 @@ export function SettingsMenu(_props: SettingsMenuProps): React.JSX.Element {
               secure: imapSecure,
               user: imapUser.trim(),
               pass: imapPass
-            }
+            },
+            taskTag: taskTag.trim() || "<OpenworkTask>"
           }
         }
       })
@@ -149,7 +152,8 @@ export function SettingsMenu(_props: SettingsMenuProps): React.JSX.Element {
     imapPort,
     imapSecure,
     imapUser,
-    imapPass
+    imapPass,
+    taskTag
   ])
 
   const handleSelectDefaultWorkspace = useCallback(async () => {
@@ -181,8 +185,8 @@ export function SettingsMenu(_props: SettingsMenuProps): React.JSX.Element {
           <Settings2 className="size-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="w-[900px] h-[640px] max-w-[90vw] max-h-[85vh] p-0 border-border/80 bg-background/95 backdrop-blur overflow-hidden">
-        <div className="flex h-full flex-col">
+      <DialogContent className="w-[900px] h-[640px] max-w-[90vw] max-h-[85vh] p-0 border-border/80 bg-background/95 backdrop-blur overflow-hidden flex flex-col gap-0">
+        <div className="flex flex-1 min-h-0 flex-col">
           <DialogHeader className="px-4 py-3 border-b border-border/70 bg-background/70">
             <DialogTitle className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
               {t("settings.title")}
@@ -210,9 +214,9 @@ export function SettingsMenu(_props: SettingsMenuProps): React.JSX.Element {
             ))}
           </div>
 
-          <div className="flex-1 overflow-y-auto">
-            {activeTab === "general" && (
-              <>
+          <div className="flex-1 min-h-0 overflow-y-auto">
+              {activeTab === "general" && (
+                <>
                 {/* Default Workspace */}
                 <div className="px-4 py-3 border-b border-border/70 flex items-center justify-between gap-3">
                   <div className="min-w-0">
@@ -282,11 +286,11 @@ export function SettingsMenu(_props: SettingsMenuProps): React.JSX.Element {
                     </Button>
                   </div>
                 </div>
-              </>
-            )}
+                </>
+              )}
 
-            {activeTab === "provider" && (
-              <div className="px-4 py-3 border-b border-border/70">
+              {activeTab === "provider" && (
+                <div className="px-4 py-3 border-b border-border/70">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                     {t("provider.title")}
@@ -391,11 +395,11 @@ export function SettingsMenu(_props: SettingsMenuProps): React.JSX.Element {
                     </div>
                   </div>
                 )}
-              </div>
-            )}
+                </div>
+              )}
 
-            {activeTab === "ralph" && (
-              <div className="px-4 py-3 border-b border-border/70">
+              {activeTab === "ralph" && (
+                <div className="px-4 py-3 border-b border-border/70">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                     {t("settings.ralph.title")}
@@ -413,11 +417,11 @@ export function SettingsMenu(_props: SettingsMenuProps): React.JSX.Element {
                     className="w-full h-7 px-2 text-xs bg-muted/50 border border-border/50 rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
                   />
                 </div>
-              </div>
-            )}
+                </div>
+              )}
 
-            {activeTab === "email" && (
-              <div className="px-4 py-3 border-b border-border/70 space-y-3">
+              {activeTab === "email" && (
+                <div className="px-4 py-3 pb-6 border-b border-border/70 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                     {t("settings.email.title")}
@@ -552,8 +556,24 @@ export function SettingsMenu(_props: SettingsMenuProps): React.JSX.Element {
                     />
                   </div>
                 </div>
-              </div>
-            )}
+
+                <div className="space-y-2">
+                  <label className="text-[10px] text-muted-foreground block">
+                    {t("settings.email.task_tag")}
+                  </label>
+                  <input
+                    type="text"
+                    value={taskTag}
+                    onChange={(e) => setTaskTag(e.target.value)}
+                    placeholder="<OpenworkTask>"
+                    className="w-full h-7 px-2 text-xs bg-muted/50 border border-border/50 rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                  <div className="text-[10px] text-muted-foreground/70">
+                    {t("settings.email.task_tag_hint")}
+                  </div>
+                </div>
+                </div>
+              )}
           </div>
 
           <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border/70 bg-background/70">

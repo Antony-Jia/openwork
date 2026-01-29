@@ -12,7 +12,10 @@ export interface EmailTask {
   threadId?: string | null
 }
 
-const OPENWORK_SUBJECT_TAG = "<OpenworkTask>"
+function getTaskTag(): string {
+  const settings = getSettings()
+  return settings.email.taskTag || "<OpenworkTask>"
+}
 
 export function normalizeSubject(subject: string): string {
   return subject.replace(/^(?:\s*(?:re|fwd|fw):\s*)+/gi, "").trim()
@@ -20,12 +23,16 @@ export function normalizeSubject(subject: string): string {
 
 export function buildEmailSubject(threadId: string, suffix: string): string {
   const cleaned = suffix.trim()
-  return `${OPENWORK_SUBJECT_TAG} [${threadId}] ${cleaned}`.trim()
+  const tag = getTaskTag()
+  return `${tag} [${threadId}] ${cleaned}`.trim()
 }
 
 export function stripEmailSubjectPrefix(subject: string): string {
   const normalized = normalizeSubject(subject)
-  return normalized.replace(/^<OpenworkTask>\s*(\[[^\]]+\]\s*)?/i, "").trim()
+  const tag = getTaskTag()
+  const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const regex = new RegExp(`^${escapedTag}\\s*(\\[[^\\]]+\\]\\s*)?`, "i")
+  return normalized.replace(regex, "").trim()
 }
 
 function getEmailSettings(): EmailSettings {
@@ -78,19 +85,25 @@ export async function sendEmail({
 
 function extractThreadIdFromSubject(subject: string): string | null {
   const normalized = normalizeSubject(subject)
-  const match = normalized.match(/<OpenworkTask>\s*\[([^\]]+)\]/i)
+  const tag = getTaskTag()
+  const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const regex = new RegExp(`${escapedTag}\\s*\\[([^\\]]+)\\]`, "i")
+  const match = normalized.match(regex)
   return match ? match[1] : null
 }
 
 export function isStartWorkSubject(subject: string): boolean {
   const normalized = normalizeSubject(subject)
-  if (!normalized.toLowerCase().includes(OPENWORK_SUBJECT_TAG.toLowerCase())) {
+  const tag = getTaskTag()
+  if (!normalized.toLowerCase().includes(tag.toLowerCase())) {
     return false
   }
   if (extractThreadIdFromSubject(normalized)) {
     return false
   }
-  return /^<OpenworkTask>\s*startwork\b/i.test(normalized)
+  const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const regex = new RegExp(`^${escapedTag}\\s*startwork\\b`, "i")
+  return regex.test(normalized)
 }
 
 export async function fetchUnreadEmailTasks(threadId?: string): Promise<EmailTask[]> {
@@ -113,20 +126,21 @@ export async function fetchUnreadEmailTasks(threadId?: string): Promise<EmailTas
     await client.connect()
     await client.mailboxOpen("INBOX")
 
+    const tag = getTaskTag()
     const uids = await client.search({
       seen: false,
-      header: ["subject", OPENWORK_SUBJECT_TAG]
+      header: { subject: tag }
     })
 
-    if (uids.length === 0) {
+    if (!uids || uids.length === 0) {
       return tasks
     }
 
-    for await (const message of client.fetch(uids, { source: true, envelope: true })) {
+    for await (const message of client.fetch(uids as number[], { source: true, envelope: true })) {
       if (!message.source) continue
       const parsed = await simpleParser(message.source)
       const subject = parsed.subject ?? ""
-      if (!subject.toLowerCase().includes(OPENWORK_SUBJECT_TAG.toLowerCase())) {
+      if (!subject.toLowerCase().includes(tag.toLowerCase())) {
         continue
       }
       if (threadId) {

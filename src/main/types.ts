@@ -240,6 +240,7 @@ export interface EmailSettings {
   to: string[]
   smtp: EmailSmtpConfig
   imap: EmailImapConfig
+  taskTag: string
 }
 
 export interface AppSettings {
