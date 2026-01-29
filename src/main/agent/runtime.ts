@@ -25,7 +25,7 @@ import type * as _lcMessages from "@langchain/core/messages"
 import type * as _lcLanggraph from "@langchain/langgraph"
 import type * as _lcZodTypes from "@langchain/core/utils/types"
 
-import { BASE_SYSTEM_PROMPT } from "./system-prompt"
+import { getBaseSystemPrompt } from "./system-prompt"
 
 /**
  * Generate the full system prompt for the agent.
@@ -33,7 +33,12 @@ import { BASE_SYSTEM_PROMPT } from "./system-prompt"
  * @param workspacePath - The workspace path the agent is operating in
  * @returns The complete system prompt
  */
-function getSystemPrompt(workspacePath: string, dockerConfig?: DockerConfig): string {
+function getSystemPrompt(
+  workspacePath: string,
+  dockerConfig?: DockerConfig,
+  isWindows?: boolean
+): string {
+  const baseSystemPrompt = getBaseSystemPrompt({ isWindows })
   const workingDirSection = `
 ### File System and Paths
 
@@ -55,7 +60,7 @@ function getSystemPrompt(workspacePath: string, dockerConfig?: DockerConfig): st
 `
     : ""
 
-  return workingDirSection + dockerSection + BASE_SYSTEM_PROMPT
+  return workingDirSection + dockerSection + baseSystemPrompt
 }
 
 function normalizeDockerWorkspace(config: DockerConfig): string {
@@ -311,10 +316,11 @@ export async function createAgentRuntime(options: CreateAgentRuntimeOptions) {
   const effectiveWorkspace = dockerConfig?.enabled
     ? normalizeDockerWorkspace(dockerConfig)
     : workspacePath
+  const isWindows = process.platform === "win32"
   const now = new Date()
   const currentTimePrompt = `Current time: ${now.toISOString()}\nCurrent year: ${now.getFullYear()}`
   const systemPrompt =
-    getSystemPrompt(effectiveWorkspace, dockerConfig || undefined) +
+    getSystemPrompt(effectiveWorkspace, dockerConfig || undefined, isWindows) +
     `\n\n${currentTimePrompt}` +
     (extraSystemPrompt ? `\n\n${extraSystemPrompt}` : "")
 

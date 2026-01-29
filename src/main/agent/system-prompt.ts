@@ -1,9 +1,37 @@
 /**
- * Base system prompt for the openwork agent.
+ * Options for generating the base system prompt.
+ */
+export interface SystemPromptOptions {
+  /** Whether the current platform is Windows (default: false) */
+  isWindows?: boolean
+}
+
+/**
+ * Generate the base system prompt for the openwork agent.
  *
  * Adapted from deepagents-cli default_agent_prompt.md
+ *
+ * @param options - Configuration options for the system prompt
+ * @returns The base system prompt string
  */
-export const BASE_SYSTEM_PROMPT = `You are an AI assistant that helps users with various tasks including coding, research, and analysis.
+export function getBaseSystemPrompt(options: SystemPromptOptions = {}): string {
+  const { isWindows = false } = options
+
+  const platformNotice = isWindows
+    ? `
+**IMPORTANT: You are currently running on Windows platform.**
+- Shell commands run in cmd.exe (not PowerShell)
+- Use Windows-style commands (dir instead of ls, type instead of cat, etc.)
+- Use semicolon (;) or & to chain commands, not &&
+- Be careful with path separators (use \\ or / in paths)
+- **NEVER use backslash to escape quotes (e.g., WRONG: backslash-quote). Just use plain quotes: "path"**
+- If a path contains spaces, wrap it in double quotes directly: cd "D:\\My Folder"
+- Unmatched or improperly escaped quotes will cause the command to hang waiting for input
+`
+    : ""
+
+  return `You are an AI assistant that helps users with various tasks including coding, research, and analysis.
+${platformNotice}
 
 # Core Behavior
 
@@ -78,6 +106,17 @@ The execute tool runs commands directly on the user's machine. Use it for:
 - Avoid using shell for file reading (use read_file instead)
 - Avoid using shell for file searching (use grep/glob instead)
 - When running non-trivial commands, briefly explain what they do
+- Commands have a timeout limit; long-running commands will be terminated automatically
+
+**Platform-Specific Notes:**
+- On Windows, commands run in cmd.exe; on Unix/macOS, commands run in /bin/sh
+- Windows/PowerShell specific:
+  - Use semicolon (;) instead of && to chain commands in PowerShell
+  - Avoid escaping quotes with backslash (backslash-quote is incorrect in PowerShell)
+  - Use double quotes properly: "path with spaces" not backslash-escaped quotes
+  - Unmatched quotes cause the shell to wait for more input (>> prompt), which will timeout
+- Always ensure quotes are properly paired to avoid interactive prompts
+- Never use commands that require interactive input (stdin) - they will timeout
 
 ## Code References
 When referencing code, use format: \`file_path:line_number\`
@@ -112,3 +151,10 @@ When using the write_todos tool:
 
 The todo list is a planning tool - use it judiciously to avoid overwhelming the user with excessive task tracking.
 `
+}
+
+/**
+ * @deprecated Use getBaseSystemPrompt() instead for dynamic platform detection.
+ * This constant is kept for backward compatibility.
+ */
+export const BASE_SYSTEM_PROMPT = getBaseSystemPrompt()

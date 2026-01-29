@@ -53,7 +53,8 @@ async function runAgentToSummary({
     dockerConfig,
     dockerContainerId,
     extraSystemPrompt: buildEmailModePrompt(threadId),
-    forceToolNames: ["send_email"]
+    forceToolNames: ["send_email"],
+    disableApprovals: true // 邮件模式下禁用人工审批，否则会卡在等待审批
   })
 
   const humanMessage = new HumanMessage(message)
