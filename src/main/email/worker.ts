@@ -15,6 +15,7 @@ import {
   stripEmailSubjectPrefix
 } from "./service"
 import { buildEmailModePrompt } from "./prompt"
+import { generateTitle } from "../services/title-generator"
 import type { EmailTask } from "./service"
 
 let pollInterval: NodeJS.Timeout | null = null
@@ -107,13 +108,14 @@ async function processStartWorkTask(task: EmailTask, defaultWorkspacePath: strin
     workspacePath: defaultWorkspacePath
   }
   dbCreateThread(threadId, metadata)
-  dbUpdateThread(threadId, {
-    metadata: JSON.stringify(metadata),
-    title: `Email Task ${new Date().toLocaleDateString()}`
-  })
-  broadcastThreadsChanged()
 
   const taskPrompt = buildTaskPrompt(task)
+  const title = generateTitle(taskPrompt)
+  dbUpdateThread(threadId, {
+    metadata: JSON.stringify(metadata),
+    title
+  })
+  broadcastThreadsChanged()
   await runAgentToSummary({
     threadId,
     workspacePath: defaultWorkspacePath,

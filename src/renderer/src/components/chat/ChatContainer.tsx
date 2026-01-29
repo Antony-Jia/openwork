@@ -487,7 +487,7 @@ export function ChatContainer({ threadId }: ChatContainerProps): React.JSX.Eleme
       </div>
 
       {/* Input - stays at bottom */}
-      <div className="flex-shrink-0 px-4 pb-4 pt-2 bg-background border-t border-border/30">
+      <div className="flex-shrink-0 px-4 pb-4 pt-2 border-t border-border/30">
         <form onSubmit={handleSubmit} className="max-w-3xl mx-auto relative">
           <div className="relative flex flex-col gap-2 rounded-xl border border-border bg-background shadow-sm focus-within:shadow-md focus-within:border-ring/30 transition-all duration-200 p-2">
             <textarea
