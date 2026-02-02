@@ -1,6 +1,52 @@
 // Re-export types from electron for use in renderer
 export type ThreadStatus = "idle" | "busy" | "interrupted" | "error"
-export type ThreadMode = "default" | "ralph" | "email"
+export type ThreadMode = "default" | "ralph" | "email" | "loop"
+
+export type LoopTriggerType = "schedule" | "api" | "file"
+export type LoopConditionOp = "equals" | "contains" | "truthy"
+
+export interface LoopQueueConfig {
+  policy: "strict"
+  mergeWindowSec: number
+}
+
+export interface LoopScheduleTrigger {
+  type: "schedule"
+  cron: string
+}
+
+export interface LoopApiTrigger {
+  type: "api"
+  cron: string
+  url: string
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
+  headers?: Record<string, string>
+  bodyJson?: Record<string, unknown> | null
+  jsonPath: string
+  op: LoopConditionOp
+  expected?: string
+  timeoutMs?: number
+}
+
+export interface LoopFileTrigger {
+  type: "file"
+  watchPath: string
+  suffixes?: string[]
+  previewMaxLines: number
+  previewMaxBytes: number
+}
+
+export type LoopTrigger = LoopScheduleTrigger | LoopApiTrigger | LoopFileTrigger
+
+export interface LoopConfig {
+  enabled: boolean
+  contentTemplate: string
+  trigger: LoopTrigger
+  queue: LoopQueueConfig
+  lastRunAt?: string
+  lastError?: string | null
+  nextRunAt?: string | null
+}
 
 export interface Thread {
   thread_id: string

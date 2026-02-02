@@ -6,6 +6,7 @@ import { useAppStore } from "@/lib/store"
 import { useThreadStream } from "@/lib/thread-context"
 import { cn, formatRelativeTime, truncate } from "@/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { LoopConfigDialog } from "@/components/loop/LoopConfigDialog"
 import {
   ContextMenu,
   ContextMenuContent,
@@ -57,6 +58,8 @@ function ThreadListItem({
       ? "border-l-2 border-emerald-400/60 bg-emerald-50/30 dark:bg-emerald-950/20"
       : mode === "email"
         ? "border-l-2 border-violet-400/60 bg-violet-50/30 dark:bg-violet-950/20"
+        : mode === "loop"
+          ? "border-l-2 border-amber-400/60 bg-amber-50/30 dark:bg-amber-950/20"
         : "border-l-2 border-blue-400/40 bg-blue-50/30 dark:bg-blue-950/20"
   return (
     <ContextMenu>
@@ -145,6 +148,7 @@ export function ThreadSidebar(): React.JSX.Element {
   const [editingThreadId, setEditingThreadId] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState("")
   const [newThreadOpen, setNewThreadOpen] = useState(false)
+  const [loopDialogOpen, setLoopDialogOpen] = useState(false)
 
   const startEditing = (threadId: string, currentTitle: string): void => {
     setEditingThreadId(threadId)
@@ -219,6 +223,19 @@ export function ThreadSidebar(): React.JSX.Element {
                 {t("sidebar.new_thread.email_desc")}
               </div>
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                setNewThreadOpen(false)
+                setLoopDialogOpen(true)
+              }}
+              className="w-full rounded-md px-2 py-2 text-left text-xs hover:bg-accent transition-colors"
+            >
+              <div className="font-medium">{t("sidebar.new_thread.loop")}</div>
+              <div className="text-[10px] text-muted-foreground">
+                {t("sidebar.new_thread.loop_desc")}
+              </div>
+            </button>
           </PopoverContent>
         </Popover>
       </div>
@@ -249,6 +266,8 @@ export function ThreadSidebar(): React.JSX.Element {
           )}
         </div>
       </ScrollArea>
+
+      <LoopConfigDialog open={loopDialogOpen} onOpenChange={setLoopDialogOpen} mode="create" />
     </aside>
   )
 }

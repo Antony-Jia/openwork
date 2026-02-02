@@ -705,8 +705,10 @@ export function ThreadProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const cleanup = window.electron.ipcRenderer.on(
       "thread:history-updated",
-      (threadId: string) => {
-        if (!threadId || !initializedThreadsRef.current.has(threadId)) return
+      (...args: unknown[]) => {
+        const threadId = args[0]
+        if (typeof threadId !== "string") return
+        if (!initializedThreadsRef.current.has(threadId)) return
         loadThreadHistory(threadId)
       }
     )

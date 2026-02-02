@@ -12,6 +12,7 @@ import { deleteThreadCheckpoint } from "../storage"
 import { generateTitle } from "../services/title-generator"
 import { broadcastThreadsChanged } from "./events"
 import { readRalphLogTail } from "../ralph-log"
+import { loopManager } from "../loop/manager"
 import type { Thread, ThreadUpdateParams } from "../types"
 
 export function registerThreadHandlers(ipcMain: IpcMain): void {
@@ -48,7 +49,6 @@ export function registerThreadHandlers(ipcMain: IpcMain): void {
   ipcMain.handle("threads:create", async (_event, metadata?: Record<string, unknown>) => {
     const threadId = uuid()
     const title = (metadata?.title as string) || `Thread ${new Date().toLocaleDateString()}`
-    const mode = (metadata?.mode as string) || "default"
     const mergedMetadata: Record<string, unknown> = { mode: "default", ...metadata, title }
 
     // Note: For email threads created via email (processStartWorkTask in worker.ts),
@@ -98,6 +98,7 @@ export function registerThreadHandlers(ipcMain: IpcMain): void {
   // Delete a thread
   ipcMain.handle("threads:delete", async (_event, threadId: string) => {
     console.log("[Threads] Deleting thread:", threadId)
+    loopManager.cleanupThread(threadId)
 
     // Delete from our metadata store
     dbDeleteThread(threadId)

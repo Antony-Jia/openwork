@@ -9,6 +9,7 @@ import { WorkspacePicker } from "./WorkspacePicker"
 import { selectWorkspaceFolder } from "@/lib/workspace-utils"
 import { ChatTodos } from "./ChatTodos"
 import { ContextUsageIndicator } from "./ContextUsageIndicator"
+import { LoopPanel } from "@/components/loop/LoopPanel"
 import { cn } from "@/lib/utils"
 import { useLanguage } from "@/lib/i18n"
 import { useDockerState } from "@/lib/docker-state"
@@ -26,6 +27,10 @@ interface StreamMessage {
   tool_call_id?: string
   name?: string
 }
+
+type StreamContentBlock =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } }
 
 interface ChatContainerProps {
   threadId: string
@@ -49,6 +54,8 @@ export function ChatContainer({ threadId }: ChatContainerProps): React.JSX.Eleme
       ? "bg-emerald-50/40 dark:bg-emerald-950/30"
       : threadMode === "email"
         ? "bg-violet-50/40 dark:bg-violet-950/30"
+        : threadMode === "loop"
+          ? "bg-amber-50/40 dark:bg-amber-950/30"
         : "bg-blue-50/40 dark:bg-blue-950/30"
 
   // Get persisted thread state and actions from context
@@ -405,9 +412,24 @@ export function ChatContainer({ threadId }: ChatContainerProps): React.JSX.Eleme
       generateTitleForFirstMessage(threadId, message || t("chat.image_message_title"))
     }
 
+    let streamContent: string | StreamContentBlock[] = ""
+    if (typeof messageContent === "string") {
+      streamContent = messageContent
+    } else {
+      const blocks: StreamContentBlock[] = []
+      for (const block of messageContent) {
+        if (block?.type === "text" && block.text) {
+          blocks.push({ type: "text", text: block.text })
+        } else if (block?.type === "image_url" && block.image_url?.url) {
+          blocks.push({ type: "image_url", image_url: { url: block.image_url.url } })
+        }
+      }
+      streamContent = blocks
+    }
+
     await stream.submit(
       {
-        messages: [{ type: "human", content: messageContent }]
+        messages: [{ type: "human", content: streamContent }]
       },
       {
         config: {
@@ -451,6 +473,7 @@ export function ChatContainer({ threadId }: ChatContainerProps): React.JSX.Eleme
       <div className="flex-1 overflow-y-auto min-h-0" ref={scrollRef}>
         <div className="p-4 pb-2">
           <div className="max-w-3xl mx-auto space-y-4">
+            {threadMode === "loop" && <LoopPanel threadId={threadId} />}
             {displayMessages.length === 0 && !isLoading && (
               <div className="flex flex-col items-center justify-center py-20 text-muted-foreground animate-in fade-in duration-500">
                 <div className="text-section-header mb-4 text-xs tracking-[0.2em] opacity-50">

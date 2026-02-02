@@ -24,12 +24,17 @@ export function listSubagents(): SubagentConfig[] {
   const result: SubagentConfig[] = []
   while (stmt.step()) {
     const row = stmt.getAsObject() as Record<string, unknown>
+    const providerRaw = (row.model_provider as string | null) ?? undefined
+    const provider =
+      providerRaw === "ollama" || providerRaw === "openai-compatible" || providerRaw === "multimodal"
+        ? providerRaw
+        : undefined
     result.push({
       id: String(row.id),
       name: String(row.name),
       description: String(row.description),
       systemPrompt: String(row.system_prompt),
-      provider: (row.model_provider as string | null) ?? undefined,
+      provider,
       model: (row.model as string | null) ?? undefined,
       tools: parseJson<string[]>(row.tools),
       middleware: parseJson<string[]>(row.middleware),

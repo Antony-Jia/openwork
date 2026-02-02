@@ -17,7 +17,7 @@ function normalizeProviderState(value: unknown): ProviderState | null {
     return { active, configs: configs as ProviderState["configs"] }
   }
   if ("type" in record && typeof record.type === "string") {
-    const legacy = record as ProviderConfig
+    const legacy = record as unknown as ProviderConfig
     if (!isSimpleProviderId(legacy.type)) return null
     return {
       active: legacy.type,

@@ -324,6 +324,7 @@ export async function createAgentRuntime(options: CreateAgentRuntimeOptions) {
     extraSystemPrompt,
     forceToolNames
   } = options
+  void modelId
 
   if (!threadId) {
     throw new Error("Thread ID is required for checkpointing.")

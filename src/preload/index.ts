@@ -22,7 +22,8 @@ import type {
   SettingsUpdateParams,
   RalphLogEntry,
   Attachment,
-  ContentBlock
+  ContentBlock,
+  LoopConfig
 } from "../main/types"
 
 // Simple electron API - replaces @electron-toolkit/preload
@@ -152,6 +153,23 @@ const api = {
     },
     generateTitle: (message: string): Promise<string> => {
       return ipcRenderer.invoke("threads:generateTitle", message)
+    }
+  },
+  loop: {
+    getConfig: (threadId: string): Promise<LoopConfig | null> => {
+      return ipcRenderer.invoke("loop:getConfig", threadId)
+    },
+    updateConfig: (threadId: string, config: LoopConfig): Promise<LoopConfig> => {
+      return ipcRenderer.invoke("loop:updateConfig", { threadId, config })
+    },
+    start: (threadId: string): Promise<LoopConfig> => {
+      return ipcRenderer.invoke("loop:start", threadId)
+    },
+    stop: (threadId: string): Promise<LoopConfig> => {
+      return ipcRenderer.invoke("loop:stop", threadId)
+    },
+    status: (threadId: string): Promise<{ running: boolean; queueLength: number }> => {
+      return ipcRenderer.invoke("loop:status", threadId)
     }
   },
   models: {

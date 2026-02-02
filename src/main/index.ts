@@ -25,9 +25,11 @@ import { registerDockerHandlers } from "./ipc/docker"
 import { registerAttachmentHandlers } from "./ipc/attachments"
 import { initializeDatabase } from "./db"
 import { registerMcpHandlers } from "./ipc/mcp"
+import { registerLoopHandlers } from "./ipc/loop"
 import { startAutoMcpServers } from "./mcp/service"
 import { registerSettingsHandlers } from "./ipc/settings"
 import { startEmailPolling, stopEmailPolling } from "./email/worker"
+import { loopManager } from "./loop/manager"
 
 let mainWindow: BrowserWindow | null = null
 
@@ -126,6 +128,7 @@ app.whenReady().then(async () => {
 
   // Initialize database
   await initializeDatabase()
+  loopManager.resetAllOnStartup()
 
   // Register IPC handlers
   registerAgentHandlers(ipcMain)
@@ -139,6 +142,7 @@ app.whenReady().then(async () => {
   registerAttachmentHandlers(ipcMain)
   registerMcpHandlers(ipcMain)
   registerSettingsHandlers(ipcMain)
+  registerLoopHandlers(ipcMain)
 
   await startAutoMcpServers()
 
@@ -161,4 +165,5 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   stopEmailPolling()
+  loopManager.stopAll()
 })

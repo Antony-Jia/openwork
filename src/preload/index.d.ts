@@ -23,7 +23,8 @@ import type {
   DockerSessionStatus,
   RalphLogEntry,
   ContentBlock,
-  Attachment
+  Attachment,
+  LoopConfig
 } from "../main/types"
 
 interface ElectronAPI {
@@ -70,6 +71,13 @@ interface CustomAPI {
     getHistory: (threadId: string) => Promise<unknown[]>
     getRalphLogTail: (threadId: string, limit?: number) => Promise<RalphLogEntry[]>
     generateTitle: (message: string) => Promise<string>
+  }
+  loop: {
+    getConfig: (threadId: string) => Promise<LoopConfig | null>
+    updateConfig: (threadId: string, config: LoopConfig) => Promise<LoopConfig>
+    start: (threadId: string) => Promise<LoopConfig>
+    stop: (threadId: string) => Promise<LoopConfig>
+    status: (threadId: string) => Promise<{ running: boolean; queueLength: number }>
   }
   models: {
     list: () => Promise<ModelConfig[]>

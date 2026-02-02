@@ -28,7 +28,7 @@ type McpToolDefinition = {
 type RunningMcpServer = {
   config: McpServerConfig
   client: Client
-  transport: unknown
+  transport: StdioClientTransport | SSEClientTransport
   tools: McpToolDefinition[]
   toolInstances: Array<unknown>
 }
@@ -270,20 +270,34 @@ export async function startMcpServer(id: string): Promise<McpServerStatus> {
 
     try {
       const client = new Client(clientInfo, { capabilities: {} })
-      let transport: unknown
+      let transport: StdioClientTransport | SSEClientTransport
 
       if (config.mode === "local") {
+        const env: Record<string, string> = {}
+        for (const [key, value] of Object.entries(process.env)) {
+          if (typeof value === "string") env[key] = value
+        }
+        if (config.env) {
+          for (const [key, value] of Object.entries(config.env)) {
+            if (typeof value === "string") env[key] = value
+          }
+        }
+
         transport = new StdioClientTransport({
           command: config.command || "",
           args: config.args || [],
-          env: { ...process.env, ...(config.env ?? {}) },
+          env,
           cwd: config.cwd
         })
       } else {
         const url = new URL(config.url || "")
-        transport = new SSEClientTransport(url, {
-          headers: config.headers
-        })
+        transport = new SSEClientTransport(
+          url,
+          (config.headers ? { headers: config.headers } : undefined) as unknown as Record<
+            string,
+            string
+          >
+        )
       }
 
       await client.connect(transport)
