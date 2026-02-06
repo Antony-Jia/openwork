@@ -38,6 +38,7 @@ export function listSubagents(): SubagentConfig[] {
       model: (row.model as string | null) ?? undefined,
       tools: parseJson<string[]>(row.tools),
       middleware: parseJson<string[]>(row.middleware),
+      skills: parseJson<string[]>(row.skills),
       interruptOn:
         row.interrupt_on === null || row.interrupt_on === undefined
           ? undefined
@@ -51,7 +52,11 @@ export function listSubagents(): SubagentConfig[] {
 }
 
 export function createSubagent(input: Omit<SubagentConfig, "id">): SubagentConfig {
-  logEntry("Subagents", "create", { name: input.name, toolCount: input.tools?.length ?? 0 })
+  logEntry("Subagents", "create", {
+    name: input.name,
+    toolCount: input.tools?.length ?? 0,
+    skillCount: input.skills?.length ?? 0
+  })
   if (!input.name?.trim()) {
     throw new Error("Subagent name is required.")
   }
@@ -79,6 +84,7 @@ export function createSubagent(input: Omit<SubagentConfig, "id">): SubagentConfi
     model: input.model,
     tools: input.tools,
     middleware: input.middleware,
+    skills: input.skills,
     interruptOn: input.interruptOn ?? false,
     enabled: input.enabled ?? true
   }
@@ -86,8 +92,8 @@ export function createSubagent(input: Omit<SubagentConfig, "id">): SubagentConfi
   const database = getDb()
   database.run(
     `INSERT OR REPLACE INTO subagents
-     (id, name, description, system_prompt, model, model_provider, tools, middleware, interrupt_on, enabled)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     (id, name, description, system_prompt, model, model_provider, tools, middleware, skills, interrupt_on, enabled)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       created.id,
       created.name,
@@ -97,6 +103,7 @@ export function createSubagent(input: Omit<SubagentConfig, "id">): SubagentConfi
       created.provider ?? null,
       created.tools ? JSON.stringify(created.tools) : null,
       created.middleware ? JSON.stringify(created.middleware) : null,
+      created.skills ? JSON.stringify(created.skills) : null,
       created.interruptOn === undefined ? null : created.interruptOn ? 1 : 0,
       created.enabled === undefined ? null : created.enabled ? 1 : 0
     ]
@@ -143,8 +150,8 @@ export function updateSubagent(
   const database = getDb()
   database.run(
     `INSERT OR REPLACE INTO subagents
-     (id, name, description, system_prompt, model, model_provider, tools, middleware, interrupt_on, enabled)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     (id, name, description, system_prompt, model, model_provider, tools, middleware, skills, interrupt_on, enabled)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       updated.id,
       updated.name,
@@ -154,6 +161,7 @@ export function updateSubagent(
       updated.provider ?? null,
       updated.tools ? JSON.stringify(updated.tools) : null,
       updated.middleware ? JSON.stringify(updated.middleware) : null,
+      updated.skills ? JSON.stringify(updated.skills) : null,
       updated.interruptOn === undefined ? null : updated.interruptOn ? 1 : 0,
       updated.enabled === undefined ? null : updated.enabled ? 1 : 0
     ]

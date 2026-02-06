@@ -148,8 +148,9 @@ function showMainWindow(): void {
 function createQuickInputWindow(): void {
   if (quickInputWindow) return
   const { width, height } = screen.getPrimaryDisplay().workAreaSize
-  const windowWidth = 680
-  const windowHeight = 120
+  const defaultQuickInputWidth = 860
+  const windowWidth = Math.min(Math.round(defaultQuickInputWidth * 1.5), Math.max(640, width - 80))
+  const windowHeight = 156
   const x = Math.round((width - windowWidth) / 2)
   const y = Math.round((height - windowHeight) / 4)
 
@@ -164,7 +165,8 @@ function createQuickInputWindow(): void {
     movable: true,
     alwaysOnTop: true,
     skipTaskbar: true,
-    backgroundColor: "#0D0D0F",
+    transparent: true,
+    backgroundColor: "#00000000",
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
       sandbox: false

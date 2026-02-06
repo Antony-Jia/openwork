@@ -1,5 +1,5 @@
-import { useCallback, useState } from "react"
-import { Bot, Plus, Pencil, Trash2 } from "lucide-react"
+import { useCallback, useState, type ReactNode } from "react"
+import { Bot, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -9,16 +9,19 @@ import {
   DialogTitle
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { cn } from "@/lib/utils"
 import { useLanguage } from "@/lib/i18n"
+import { cn } from "@/lib/utils"
 import type {
   McpServerListItem,
   McpToolInfo,
   MiddlewareDefinition,
   SimpleProviderId,
+  SkillItem,
   SubagentConfig,
   ToolInfo
 } from "@/types"
+
+type SelectorSection = "tools" | "mcp" | "middleware" | "skills"
 
 interface SubagentFormState {
   name: string
@@ -29,6 +32,17 @@ interface SubagentFormState {
   interruptOn: boolean
   tools: string[]
   middleware: string[]
+  skills: string[]
+}
+
+interface SelectionSectionProps {
+  title: string
+  total: number
+  selected: number
+  open: boolean
+  onToggle: () => void
+  emptyText: string
+  children: ReactNode
 }
 
 const emptyForm: SubagentFormState = {
@@ -39,7 +53,54 @@ const emptyForm: SubagentFormState = {
   model: "",
   interruptOn: false,
   tools: [],
-  middleware: []
+  middleware: [],
+  skills: []
+}
+
+const defaultSectionState: Record<SelectorSection, boolean> = {
+  tools: true,
+  mcp: false,
+  middleware: false,
+  skills: false
+}
+
+function SelectionSection({
+  title,
+  total,
+  selected,
+  open,
+  onToggle,
+  emptyText,
+  children
+}: SelectionSectionProps): React.JSX.Element {
+  return (
+    <div className="rounded-sm border border-border">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-muted/30"
+      >
+        <span className="flex items-center gap-2">
+          <ChevronRight className={cn("size-3.5 transition-transform", open && "rotate-90")} />
+          <span className="text-xs text-muted-foreground">{title}</span>
+        </span>
+        <span className="text-[10px] text-muted-foreground">
+          {selected}/{total}
+        </span>
+      </button>
+      {open && (
+        <div className="border-t border-border p-2">
+          {total === 0 ? (
+            <div className="rounded-sm border border-dashed border-border p-3 text-xs text-muted-foreground">
+              {emptyText}
+            </div>
+          ) : (
+            children
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function SubagentManager(): React.JSX.Element {
@@ -47,12 +108,15 @@ export function SubagentManager(): React.JSX.Element {
   const [subagents, setSubagents] = useState<SubagentConfig[]>([])
   const [tools, setTools] = useState<ToolInfo[]>([])
   const [middleware, setMiddleware] = useState<MiddlewareDefinition[]>([])
+  const [skills, setSkills] = useState<SkillItem[]>([])
   const [mcpServers, setMcpServers] = useState<McpServerListItem[]>([])
   const [mcpTools, setMcpTools] = useState<McpToolInfo[]>([])
   const [mode, setMode] = useState<"list" | "create" | "edit">("list")
   const [form, setForm] = useState<SubagentFormState>(emptyForm)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [expandedSections, setExpandedSections] =
+    useState<Record<SelectorSection, boolean>>(defaultSectionState)
   const { t } = useLanguage()
 
   const loadSubagents = useCallback(async () => {
@@ -61,18 +125,8 @@ export function SubagentManager(): React.JSX.Element {
   }, [])
 
   const loadTools = useCallback(async () => {
-    try {
-      console.log("[SubagentManager] loadTools calling...")
-      const items = await window.api.tools.list()
-      console.log("[SubagentManager] loadTools received:", items, "length:", items?.length)
-      if (items && Array.isArray(items)) {
-        setTools(items)
-      } else {
-        console.error("[SubagentManager] loadTools received invalid data:", items)
-      }
-    } catch (e) {
-      console.error("[SubagentManager] loadTools error:", e)
-    }
+    const items = await window.api.tools.list()
+    setTools(items)
   }, [])
 
   const loadMiddleware = useCallback(async () => {
@@ -80,21 +134,23 @@ export function SubagentManager(): React.JSX.Element {
     setMiddleware(items)
   }, [])
 
+  const loadSkills = useCallback(async () => {
+    const items = await window.api.skills.list()
+    setSkills(items)
+  }, [])
+
   const loadMcp = useCallback(async () => {
-    try {
-      const servers = await window.api.mcp.list()
-      setMcpServers(servers)
-      const tools = await window.api.mcp.tools()
-      setMcpTools(tools)
-    } catch (e) {
-      console.error("[SubagentManager] loadMcp error:", e)
-    }
+    const servers = await window.api.mcp.list()
+    setMcpServers(servers)
+    const mcpToolList = await window.api.mcp.tools()
+    setMcpTools(mcpToolList)
   }, [])
 
   const resetForm = (): void => {
     setForm(emptyForm)
     setEditingId(null)
     setError(null)
+    setExpandedSections(defaultSectionState)
     setMode("list")
   }
 
@@ -102,6 +158,7 @@ export function SubagentManager(): React.JSX.Element {
     setForm(emptyForm)
     setEditingId(null)
     setError(null)
+    setExpandedSections(defaultSectionState)
     setMode("create")
   }
 
@@ -114,11 +171,17 @@ export function SubagentManager(): React.JSX.Element {
       model: agent.model ?? "",
       interruptOn: agent.interruptOn ?? false,
       tools: agent.tools ?? [],
-      middleware: agent.middleware ?? []
+      middleware: agent.middleware ?? [],
+      skills: agent.skills ?? []
     })
     setEditingId(agent.id)
     setError(null)
+    setExpandedSections(defaultSectionState)
     setMode("edit")
+  }
+
+  const toggleSection = (section: SelectorSection): void => {
+    setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }))
   }
 
   const toggleTool = (name: string): void => {
@@ -136,6 +199,14 @@ export function SubagentManager(): React.JSX.Element {
         ? prev.middleware.filter((item) => item !== id)
         : [...prev.middleware, id]
       return { ...prev, middleware: nextMiddleware }
+    })
+  }
+
+  const toggleSkill = (name: string): void => {
+    setForm((prev) => {
+      const exists = prev.skills.includes(name)
+      const nextSkills = exists ? prev.skills.filter((skill) => skill !== name) : [...prev.skills, name]
+      return { ...prev, skills: nextSkills }
     })
   }
 
@@ -169,6 +240,7 @@ export function SubagentManager(): React.JSX.Element {
           model: form.model.trim() ? form.model.trim() : undefined,
           tools: form.tools,
           middleware: form.middleware,
+          skills: form.skills,
           interruptOn: form.interruptOn
         })
       } else if (mode === "edit" && editingId) {
@@ -180,6 +252,7 @@ export function SubagentManager(): React.JSX.Element {
           model: form.model.trim() ? form.model.trim() : undefined,
           tools: form.tools,
           middleware: form.middleware,
+          skills: form.skills,
           interruptOn: form.interruptOn
         })
       }
@@ -213,8 +286,16 @@ export function SubagentManager(): React.JSX.Element {
     void loadSubagents()
     void loadTools()
     void loadMiddleware()
+    void loadSkills()
     void loadMcp()
   }
+
+  const selectedToolCount = tools.filter((tool) => form.tools.includes(tool.name)).length
+  const selectedMcpCount = mcpServers.filter((server) =>
+    form.tools.some((name) => name.startsWith(`mcp.${server.config.id}.`))
+  ).length
+  const selectedMiddlewareCount = form.middleware.length
+  const selectedSkillCount = form.skills.length
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -235,14 +316,14 @@ export function SubagentManager(): React.JSX.Element {
       </Button>
 
       <DialogContent className="w-[900px] h-[640px] max-w-[90vw] max-h-[85vh] p-0 overflow-hidden">
-        <div className="flex h-full flex-col">
+        <div className="flex h-full min-h-0 flex-col">
           <DialogHeader className="px-6 pt-6">
             <DialogTitle className="text-sm uppercase tracking-[0.2em] text-muted-foreground">
               {t("subagents.title")}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto px-6 pb-6 pt-4">
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6 pt-4">
             {mode === "list" ? (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -309,6 +390,7 @@ export function SubagentManager(): React.JSX.Element {
                     onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
                   />
                 </div>
+
                 <div className="space-y-2">
                   <label className="text-xs text-muted-foreground">
                     {t("subagents.description")}
@@ -318,6 +400,7 @@ export function SubagentManager(): React.JSX.Element {
                     onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
                   />
                 </div>
+
                 <div className="space-y-2">
                   <label className="text-xs text-muted-foreground">
                     {t("subagents.system_prompt")}
@@ -328,6 +411,7 @@ export function SubagentManager(): React.JSX.Element {
                     className="w-full min-h-[120px] rounded-sm border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   />
                 </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-xs text-muted-foreground">
@@ -349,10 +433,9 @@ export function SubagentManager(): React.JSX.Element {
                       <option value="multimodal">{t("provider.multimodal")}</option>
                     </select>
                   </div>
+
                   <div className="space-y-2">
-                    <label className="text-xs text-muted-foreground">
-                      {t("subagents.model")}
-                    </label>
+                    <label className="text-xs text-muted-foreground">{t("subagents.model")}</label>
                     <Input
                       value={form.model}
                       onChange={(e) => setForm((prev) => ({ ...prev, model: e.target.value }))}
@@ -360,172 +443,223 @@ export function SubagentManager(): React.JSX.Element {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-xs text-muted-foreground">
-                      {t("subagents.tools")} ({tools.length})
-                    </label>
-                    {tools.length === 0 ? (
-                      <div className="rounded-sm border border-dashed border-border p-3 text-xs text-muted-foreground">
-                        {t("subagents.tools_empty")}
-                      </div>
-                    ) : (
-                      <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
-                        {tools.map((tool) => {
-                          const isSelected = form.tools.includes(tool.name)
-                          return (
-                            <div
-                              key={tool.name}
-                              onClick={() => toggleTool(tool.name)}
-                              className={cn(
-                                "rounded-sm border p-2 cursor-pointer transition-colors",
-                                isSelected
-                                  ? "border-primary bg-primary/10"
-                                  : "border-border hover:border-primary/50 hover:bg-muted/50"
-                              )}
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <input
-                                    type="checkbox"
-                                    checked={isSelected}
-                                    onChange={() => toggleTool(tool.name)}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="shrink-0"
-                                  />
-                                  <span className="text-xs font-medium text-foreground truncate">
-                                    {tool.label}
-                                  </span>
-                                </div>
-                                {!tool.enabled && (
-                                  <span className="text-[10px] text-muted-foreground shrink-0">
-                                    {t("tools.disabled")}
-                                  </span>
-                                )}
-                              </div>
-                              {tool.description && (
-                                <div className="text-[10px] text-muted-foreground mt-1 pl-5 line-clamp-2">
-                                  {tool.description}
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs text-muted-foreground">
-                      {t("subagents.mcp")} ({mcpServers.length})
-                    </label>
-                    {mcpServers.length === 0 ? (
-                      <div className="rounded-sm border border-dashed border-border p-3 text-xs text-muted-foreground">
-                        {t("subagents.mcp_empty")}
-                      </div>
-                    ) : (
-                      <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
-                        {mcpServers.map((server) => {
-                          const prefix = `mcp.${server.config.id}.`
-                          const isSelected = form.tools.some((name) => name.startsWith(prefix))
-                          const serverTools = mcpTools.filter(
-                            (tool) => tool.serverId === server.config.id
-                          )
-                          const isEnabled = server.config.enabled !== false
-                          const canSelect = isEnabled && serverTools.length > 0
-                          return (
-                            <div
-                              key={server.config.id}
-                              onClick={() => (canSelect ? toggleMcpServer(server.config.id) : null)}
-                              className={cn(
-                                "rounded-sm border p-2 transition-colors",
-                                canSelect ? "cursor-pointer" : "opacity-60 cursor-not-allowed",
-                                isSelected
-                                  ? "border-primary bg-primary/10"
-                                  : "border-border hover:border-primary/50 hover:bg-muted/50"
-                              )}
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <input
-                                    type="checkbox"
-                                    checked={isSelected}
-                                    onChange={() => toggleMcpServer(server.config.id)}
-                                    onClick={(e) => e.stopPropagation()}
-                                    disabled={!canSelect}
-                                    className="shrink-0"
-                                  />
-                                  <span className="text-xs font-medium text-foreground truncate">
-                                    {server.config.name}
-                                  </span>
-                                </div>
-                                <span className="text-[10px] text-muted-foreground shrink-0">
-                                  {!isEnabled
-                                    ? t("mcp.disabled_hint")
-                                    : server.status.running
-                                      ? `${server.status.toolsCount} ${t("mcp.tools_count")}`
-                                      : t("subagents.mcp_not_running")}
-                                </span>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs text-muted-foreground">
-                      {t("subagents.middleware")}
-                    </label>
-                    {middleware.length === 0 ? (
-                      <div className="rounded-sm border border-dashed border-border p-3 text-xs text-muted-foreground">
-                        {t("subagents.middleware_empty")}
-                      </div>
-                    ) : (
-                      <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
-                        {middleware.map((item) => {
-                          const isSelected = form.middleware.includes(item.id)
-                          return (
-                            <div
-                              key={item.id}
-                              onClick={() => toggleMiddleware(item.id)}
-                              className={cn(
-                                "rounded-sm border p-2 cursor-pointer transition-colors",
-                                isSelected
-                                  ? "border-primary bg-primary/10"
-                                  : "border-border hover:border-primary/50 hover:bg-muted/50"
-                              )}
-                            >
-                              <div className="flex items-center gap-2">
+
+                <div className="space-y-3">
+                  <SelectionSection
+                    title={`${t("subagents.tools")} (${tools.length})`}
+                    total={tools.length}
+                    selected={selectedToolCount}
+                    open={expandedSections.tools}
+                    onToggle={() => toggleSection("tools")}
+                    emptyText={t("subagents.tools_empty")}
+                  >
+                    <div className="space-y-2 max-h-[180px] overflow-y-auto pr-1">
+                      {tools.map((tool) => {
+                        const isSelected = form.tools.includes(tool.name)
+                        return (
+                          <div
+                            key={tool.name}
+                            onClick={() => toggleTool(tool.name)}
+                            className={cn(
+                              "rounded-sm border p-2 cursor-pointer transition-colors",
+                              isSelected
+                                ? "border-primary bg-primary/10"
+                                : "border-border hover:border-primary/50 hover:bg-muted/50"
+                            )}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
                                 <input
                                   type="checkbox"
                                   checked={isSelected}
-                                  onChange={() => toggleMiddleware(item.id)}
+                                  onChange={() => toggleTool(tool.name)}
                                   onClick={(e) => e.stopPropagation()}
                                   className="shrink-0"
                                 />
                                 <span className="text-xs font-medium text-foreground truncate">
-                                  {item.label}
+                                  {tool.label}
                                 </span>
                               </div>
-                              {item.description && (
-                                <div className="text-[10px] text-muted-foreground mt-1 pl-5 line-clamp-2">
-                                  {item.description}
-                                </div>
+                              {!tool.enabled && (
+                                <span className="text-[10px] text-muted-foreground shrink-0">
+                                  {t("tools.disabled")}
+                                </span>
                               )}
                             </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
+                            {tool.description && (
+                              <div className="text-[10px] text-muted-foreground mt-1 pl-5 line-clamp-2">
+                                {tool.description}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </SelectionSection>
+
+                  <SelectionSection
+                    title={`${t("subagents.mcp")} (${mcpServers.length})`}
+                    total={mcpServers.length}
+                    selected={selectedMcpCount}
+                    open={expandedSections.mcp}
+                    onToggle={() => toggleSection("mcp")}
+                    emptyText={t("subagents.mcp_empty")}
+                  >
+                    <div className="space-y-2 max-h-[180px] overflow-y-auto pr-1">
+                      {mcpServers.map((server) => {
+                        const prefix = `mcp.${server.config.id}.`
+                        const isSelected = form.tools.some((name) => name.startsWith(prefix))
+                        const serverTools = mcpTools.filter((tool) => tool.serverId === server.config.id)
+                        const isEnabled = server.config.enabled !== false
+                        const canSelect = isEnabled && serverTools.length > 0
+                        return (
+                          <div
+                            key={server.config.id}
+                            onClick={() => (canSelect ? toggleMcpServer(server.config.id) : null)}
+                            className={cn(
+                              "rounded-sm border p-2 transition-colors",
+                              canSelect ? "cursor-pointer" : "opacity-60 cursor-not-allowed",
+                              isSelected
+                                ? "border-primary bg-primary/10"
+                                : "border-border hover:border-primary/50 hover:bg-muted/50"
+                            )}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => toggleMcpServer(server.config.id)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  disabled={!canSelect}
+                                  className="shrink-0"
+                                />
+                                <span className="text-xs font-medium text-foreground truncate">
+                                  {server.config.name}
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-muted-foreground shrink-0">
+                                {!isEnabled
+                                  ? t("mcp.disabled_hint")
+                                  : server.status.running
+                                    ? `${server.status.toolsCount} ${t("mcp.tools_count")}`
+                                    : t("subagents.mcp_not_running")}
+                              </span>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </SelectionSection>
+
+                  <SelectionSection
+                    title={t("subagents.middleware")}
+                    total={middleware.length}
+                    selected={selectedMiddlewareCount}
+                    open={expandedSections.middleware}
+                    onToggle={() => toggleSection("middleware")}
+                    emptyText={t("subagents.middleware_empty")}
+                  >
+                    <div className="space-y-2 max-h-[180px] overflow-y-auto pr-1">
+                      {middleware.map((item) => {
+                        const isSelected = form.middleware.includes(item.id)
+                        return (
+                          <div
+                            key={item.id}
+                            onClick={() => toggleMiddleware(item.id)}
+                            className={cn(
+                              "rounded-sm border p-2 cursor-pointer transition-colors",
+                              isSelected
+                                ? "border-primary bg-primary/10"
+                                : "border-border hover:border-primary/50 hover:bg-muted/50"
+                            )}
+                          >
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleMiddleware(item.id)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="shrink-0"
+                              />
+                              <span className="text-xs font-medium text-foreground truncate">
+                                {item.label}
+                              </span>
+                            </div>
+                            {item.description && (
+                              <div className="text-[10px] text-muted-foreground mt-1 pl-5 line-clamp-2">
+                                {item.description}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </SelectionSection>
+
+                  <SelectionSection
+                    title={t("subagents.skills")}
+                    total={skills.length}
+                    selected={selectedSkillCount}
+                    open={expandedSections.skills}
+                    onToggle={() => toggleSection("skills")}
+                    emptyText={t("subagents.skills_empty")}
+                  >
+                    <div className="space-y-2 max-h-[180px] overflow-y-auto pr-1">
+                      {skills.map((skill) => {
+                        const isSelected = form.skills.includes(skill.name)
+                        return (
+                          <div
+                            key={skill.name}
+                            onClick={() => toggleSkill(skill.name)}
+                            className={cn(
+                              "rounded-sm border p-2 cursor-pointer transition-colors",
+                              isSelected
+                                ? "border-primary bg-primary/10"
+                                : "border-border hover:border-primary/50 hover:bg-muted/50"
+                            )}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => toggleSkill(skill.name)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="shrink-0"
+                                />
+                                <span className="text-xs font-medium text-foreground truncate">
+                                  {skill.name}
+                                </span>
+                              </div>
+                              {!skill.enabled && (
+                                <span className="text-[10px] text-muted-foreground shrink-0">
+                                  {t("tools.disabled")}
+                                </span>
+                              )}
+                            </div>
+                            {skill.description && (
+                              <div className="text-[10px] text-muted-foreground mt-1 pl-5 line-clamp-2">
+                                {skill.description}
+                              </div>
+                            )}
+                            {!skill.enabled && (
+                              <div className="text-[10px] text-muted-foreground mt-1 pl-5">
+                                {t("subagents.skills_disabled_global_hint")}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </SelectionSection>
                 </div>
+
                 <label className="flex items-center gap-2 text-xs text-muted-foreground">
                   <input
                     type="checkbox"
                     checked={form.interruptOn}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, interruptOn: e.target.checked }))
-                    }
+                    onChange={(e) => setForm((prev) => ({ ...prev, interruptOn: e.target.checked }))}
                   />
                   {t("subagents.interrupt_on")}
                 </label>

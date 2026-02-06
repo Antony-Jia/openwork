@@ -17,6 +17,7 @@ interface MessageBubbleProps {
   toolResults?: Map<string, ToolResultInfo>
   pendingApproval?: HITLRequest | null
   onApprovalDecision?: (decision: "approve" | "reject" | "edit") => void
+  onApproveAlways?: () => void
 }
 
 function extractTextFromContent(content: Message["content"]): string {
@@ -41,7 +42,8 @@ export function MessageBubble({
   isStreaming,
   toolResults,
   pendingApproval,
-  onApprovalDecision
+  onApprovalDecision,
+  onApproveAlways
 }: MessageBubbleProps): React.JSX.Element | null {
   const { t } = useLanguage()
   const isUser = message.role === "user"
@@ -242,6 +244,7 @@ export function MessageBubble({
                   isError={result?.is_error}
                   needsApproval={needsApproval}
                   onApprovalDecision={needsApproval ? onApprovalDecision : undefined}
+                  onApproveAlways={needsApproval ? onApproveAlways : undefined}
                 />
               )
             })}

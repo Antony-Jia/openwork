@@ -167,6 +167,7 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
       model_provider TEXT,
       tools TEXT,
       middleware TEXT,
+      skills TEXT,
       interrupt_on INTEGER,
       enabled INTEGER
     )
@@ -178,6 +179,9 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
 
   if (!tableHasColumn(db, "subagents", "model_provider")) {
     db.run(`ALTER TABLE subagents ADD COLUMN model_provider TEXT`)
+  }
+  if (!tableHasColumn(db, "subagents", "skills")) {
+    db.run(`ALTER TABLE subagents ADD COLUMN skills TEXT`)
   }
 
   migrateConfigFromJson(db)
@@ -335,16 +339,18 @@ function migrateConfigFromJson(database: SqlJsDatabase): void {
       for (const subagent of subagents) {
         database.run(
           `INSERT OR REPLACE INTO subagents
-           (id, name, description, system_prompt, model, tools, middleware, interrupt_on, enabled)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (id, name, description, system_prompt, model, model_provider, tools, middleware, skills, interrupt_on, enabled)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             subagent.id,
             subagent.name,
             subagent.description,
             subagent.systemPrompt,
             subagent.model ?? null,
+            subagent.provider ?? null,
             subagent.tools ? JSON.stringify(subagent.tools) : null,
             subagent.middleware ? JSON.stringify(subagent.middleware) : null,
+            subagent.skills ? JSON.stringify(subagent.skills) : null,
             subagent.interruptOn === undefined ? null : subagent.interruptOn ? 1 : 0,
             subagent.enabled === undefined ? null : subagent.enabled ? 1 : 0
           ]

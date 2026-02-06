@@ -240,6 +240,7 @@ export interface SubagentConfig {
   model?: string
   tools?: string[]
   middleware?: string[]
+  skills?: string[]
   interruptOn?: boolean
   enabled?: boolean
 }

@@ -144,6 +144,9 @@ const translations = {
     "chat.voice_stop_playback": "Stop audio",
     "chat.voice_input_failed": "Voice input failed",
     "chat.voice_play_failed": "Voice playback failed",
+    "chat.approval.reject": "Reject",
+    "chat.approval.approve": "Approve & Run",
+    "chat.approval.always_approve": "Always Approve",
 
     // Loop
     "loop.panel_title": "LOOP",
@@ -219,10 +222,14 @@ const translations = {
     "subagents.tools": "Tools",
     "subagents.middleware": "Middleware",
     "subagents.mcp": "MCP",
+    "subagents.skills": "Skills",
     "subagents.tools_empty": "No tools available",
     "subagents.middleware_empty": "No middleware available",
     "subagents.mcp_empty": "No MCP servers available",
+    "subagents.skills_empty": "No skills available",
     "subagents.mcp_not_running": "Not running",
+    "subagents.skills_disabled_global_hint":
+      "Globally disabled, but still selectable for this subagent.",
     "subagents.save": "Save",
     "subagents.cancel": "Cancel",
     "subagents.edit": "Edit",
@@ -482,6 +489,9 @@ const translations = {
     "chat.voice_stop_playback": "停止播放",
     "chat.voice_input_failed": "语音输入失败",
     "chat.voice_play_failed": "语音播放失败",
+    "chat.approval.reject": "拒绝",
+    "chat.approval.approve": "批准并执行",
+    "chat.approval.always_approve": "以后都自动批准",
 
     // Loop
     "loop.panel_title": "LOOP",
@@ -557,10 +567,13 @@ const translations = {
     "subagents.tools": "工具",
     "subagents.middleware": "中间件",
     "subagents.mcp": "MCP",
+    "subagents.skills": "技能",
     "subagents.tools_empty": "暂无可用工具",
     "subagents.middleware_empty": "暂无可用中间件",
     "subagents.mcp_empty": "暂无可用 MCP 服务",
+    "subagents.skills_empty": "暂无可用技能",
     "subagents.mcp_not_running": "未运行",
+    "subagents.skills_disabled_global_hint": "该技能在全局已禁用，但仍可被当前智能体显式启用。",
     "subagents.save": "保存",
     "subagents.cancel": "取消",
     "subagents.edit": "编辑",

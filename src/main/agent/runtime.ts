@@ -1,14 +1,16 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs"
+import { join, resolve } from "node:path"
 import { createDeepAgent } from "deepagents"
 import { toolRetryMiddleware, createMiddleware } from "langchain"
-import { getThreadCheckpointPath } from "../storage"
+import { getOpenworkDir, getThreadCheckpointPath } from "../storage"
 import { getProviderState } from "../provider-config"
 import { ChatOpenAI } from "@langchain/openai"
 import { ToolMessage } from "@langchain/core/messages"
 import { SqlJsSaver } from "../checkpointer/sqljs-saver"
 import { LocalSandbox } from "./local-sandbox"
 import { listSubagents } from "../subagents"
-import { getSkillsRoot, listAppSkills } from "../skills"
+import { listAppSkills } from "../skills"
 import {
   getEnabledToolInstances,
   getEnabledToolNames,
@@ -22,6 +24,7 @@ import type {
   DockerConfig,
   ProviderConfig,
   ProviderState,
+  SkillItem,
   SimpleProviderId
 } from "../types"
 import { logEntry, logExit, summarizeList } from "../logging"
@@ -102,6 +105,71 @@ function getErrorMessage(error: unknown): string {
   return String(error)
 }
 
+function normalizeSkillSourcePath(path: string): string {
+  return resolve(path).replace(/\\/g, "/")
+}
+
+function buildSkillPathMap(skills: SkillItem[]): Map<string, string> {
+  const skillPathByName = new Map<string, string>()
+  for (const skill of skills) {
+    if (!skill?.name || !skill?.path) continue
+    skillPathByName.set(skill.name, resolve(skill.path))
+  }
+  return skillPathByName
+}
+
+function resetRuntimeSkillRoot(threadId: string): string {
+  const threadRoot = join(getOpenworkDir(), "runtime-skills", threadId)
+  rmSync(threadRoot, { recursive: true, force: true })
+  mkdirSync(threadRoot, { recursive: true })
+  return threadRoot
+}
+
+function createSkillSnapshotSource(params: {
+  targetRoot: string
+  selectedSkillNames?: string[]
+  skillPathByName: Map<string, string>
+  agentName: string
+}): string[] | undefined {
+  const { targetRoot, selectedSkillNames, skillPathByName, agentName } = params
+  const uniqueSkillNames = Array.from(new Set(selectedSkillNames ?? []))
+  if (uniqueSkillNames.length === 0) {
+    return undefined
+  }
+
+  mkdirSync(targetRoot, { recursive: true })
+  let copied = 0
+  for (const skillName of uniqueSkillNames) {
+    const sourcePath = skillPathByName.get(skillName)
+    if (!sourcePath) {
+      logEntry("Runtime", "skills.missing", { agentName, skillName, reason: "not_in_registry" })
+      continue
+    }
+    if (!existsSync(sourcePath)) {
+      logEntry("Runtime", "skills.missing", { agentName, skillName, reason: "file_missing" })
+      continue
+    }
+
+    const targetSkillDir = join(targetRoot, skillName)
+    try {
+      mkdirSync(targetSkillDir, { recursive: true })
+      cpSync(sourcePath, join(targetSkillDir, "SKILL.md"))
+      copied += 1
+    } catch (error) {
+      logEntry("Runtime", "skills.copy_failed", {
+        agentName,
+        skillName,
+        message: getErrorMessage(error)
+      })
+    }
+  }
+
+  if (copied === 0) {
+    return undefined
+  }
+  return [normalizeSkillSourcePath(targetRoot)]
+}
+
 export function createToolErrorHandlingMiddleware() {
   return createMiddleware({
     name: "toolErrorHandlingMiddleware",
@@ -112,7 +180,7 @@ export function createToolErrorHandlingMiddleware() {
         return result
       } catch (error) {
         // Safely extract the tool name
-        const toolName = String(request.tool.name || "unknown")
+        const toolName = String(request.tool?.name || "unknown")
         const toolCallId = request.toolCall.id || "unknown"
 
         // Convert the caught error into a readable string
@@ -374,6 +442,19 @@ export async function createAgentRuntime(options: CreateAgentRuntimeOptions) {
     `\n\n${currentTimePrompt}` +
     (extraSystemPrompt ? `\n\n${extraSystemPrompt}` : "")
 
+  const allSkills = listAppSkills()
+  const enabledSkills = allSkills.filter((skill) => skill.enabled)
+  const skillPathByName = buildSkillPathMap(allSkills)
+  const runtimeSkillsRoot = resetRuntimeSkillRoot(threadId)
+  const mainSkillSources = createSkillSnapshotSource({
+    targetRoot: join(runtimeSkillsRoot, "main-agent"),
+    selectedSkillNames: enabledSkills.map((skill) => skill.name),
+    skillPathByName,
+    agentName: "main-agent"
+  })
+  logEntry("Runtime", "skills.runtime_root", { path: normalizeSkillSourcePath(runtimeSkillsRoot) })
+  logEntry("Runtime", "skills.enabled", summarizeList(enabledSkills.map((skill) => skill.name)))
+
   const subagents = listSubagents()
     .filter((agent) => agent.enabled !== false)
     .map((agent) => {
@@ -386,6 +467,20 @@ export async function createAgentRuntime(options: CreateAgentRuntimeOptions) {
         name: agent.name,
         resolvedCount: resolvedTools.length
       })
+      const subagentSkillSources = createSkillSnapshotSource({
+        targetRoot: join(runtimeSkillsRoot, agent.id),
+        selectedSkillNames: agent.skills,
+        skillPathByName,
+        agentName: agent.name
+      })
+      logEntry("Runtime", "subagent.skills", {
+        name: agent.name,
+        ...summarizeList(agent.skills ?? [])
+      })
+      logExit("Runtime", "subagent.skills", {
+        name: agent.name,
+        sourceCount: subagentSkillSources?.length ?? 0
+      })
       const subagentModel = getModelInstance(agent.provider, agent.model, undefined)
       return {
         name: agent.name,
@@ -394,6 +489,7 @@ export async function createAgentRuntime(options: CreateAgentRuntimeOptions) {
         model: subagentModel,
         tools: resolvedTools,
         middleware: resolveMiddlewareById(agent.middleware),
+        skills: subagentSkillSources,
         interruptOn: disableApprovals
           ? undefined
           : agent.interruptOn
@@ -401,12 +497,6 @@ export async function createAgentRuntime(options: CreateAgentRuntimeOptions) {
             : undefined
       }
     })
-
-  const skillsRoot = getSkillsRoot().replace(/\\/g, "/")
-  const enabledSkills = listAppSkills().filter((skill) => skill.enabled)
-  const enabledSkillPaths = enabledSkills.map((skill) => skill.path)
-  logEntry("Runtime", "skillsRoot", { path: skillsRoot })
-  logEntry("Runtime", "skills.enabled", summarizeList(enabledSkills.map((skill) => skill.name)))
 
   // Custom filesystem prompt for absolute paths (matches virtualMode: false)
   const filesystemSystemPrompt = `You have access to a filesystem. All file paths use fully qualified absolute system paths.
@@ -460,7 +550,7 @@ The workspace root is: ${effectiveWorkspace}`
     // Custom filesystem prompt for absolute paths (requires deepagents update)
     // filesystemSystemPrompt,
     subagents,
-    skills: enabledSkillPaths,
+    skills: mainSkillSources,
     // Require human approval for all shell commands
     interruptOn: disableApprovals ? undefined : { execute: true },
     // Add retry + error handling middleware for tool call failures

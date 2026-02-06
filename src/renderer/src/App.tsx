@@ -220,8 +220,17 @@ function MainApp(): React.JSX.Element {
 }
 
 function QuickInputApp(): React.JSX.Element {
+  useEffect(() => {
+    document.documentElement.classList.add("quick-input-mode")
+    document.body.classList.add("quick-input-mode")
+    return () => {
+      document.documentElement.classList.remove("quick-input-mode")
+      document.body.classList.remove("quick-input-mode")
+    }
+  }, [])
+
   return (
-    <div className="min-h-screen w-screen bg-background text-foreground flex items-center justify-center">
+    <div className="h-screen w-screen overflow-hidden bg-transparent text-foreground flex items-center justify-center">
       <QuickInput />
     </div>
   )

@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
+import { useLanguage } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import type { ToolCall, Todo } from "@/types"
 
@@ -27,6 +28,7 @@ interface ToolCallRendererProps {
   isError?: boolean
   needsApproval?: boolean
   onApprovalDecision?: (decision: "approve" | "reject" | "edit") => void
+  onApproveAlways?: () => void
 }
 
 const TOOL_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -305,8 +307,11 @@ export function ToolCallRenderer({
   result,
   isError,
   needsApproval,
-  onApprovalDecision
+  onApprovalDecision,
+  onApproveAlways
 }: ToolCallRendererProps): React.JSX.Element | null {
+  const { t } = useLanguage()
+
   // Defensive: ensure args is always an object
   const args = toolCall?.args || {}
 
@@ -329,6 +334,11 @@ export function ToolCallRenderer({
   const handleReject = (e: React.MouseEvent): void => {
     e.stopPropagation()
     onApprovalDecision?.("reject")
+  }
+
+  const handleApproveAlways = (e: React.MouseEvent): void => {
+    e.stopPropagation()
+    onApproveAlways?.()
   }
 
   // Format the main argument for display
@@ -655,13 +665,19 @@ export function ToolCallRenderer({
               className="px-3 py-1.5 text-xs border border-border rounded-sm hover:bg-background-interactive transition-colors"
               onClick={handleReject}
             >
-              Reject
+              {t("chat.approval.reject")}
+            </button>
+            <button
+              className="px-3 py-1.5 text-xs border border-status-nominal/40 text-status-nominal rounded-sm hover:bg-status-nominal/10 transition-colors"
+              onClick={handleApproveAlways}
+            >
+              {t("chat.approval.always_approve")}
             </button>
             <button
               className="px-3 py-1.5 text-xs bg-status-nominal text-background rounded-sm hover:bg-status-nominal/90 transition-colors"
               onClick={handleApprove}
             >
-              Approve & Run
+              {t("chat.approval.approve")}
             </button>
           </div>
         </div>

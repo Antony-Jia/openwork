@@ -70,9 +70,12 @@ export function ChatContainer({ threadId }: ChatContainerProps): React.JSX.Eleme
   const mediaStreamRef = useRef<MediaStream | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
 
-  const { loadThreads, generateTitleForFirstMessage, threads } = useAppStore()
+  const { loadThreads, generateTitleForFirstMessage, threads, updateThread } = useAppStore()
   const currentThread = threads.find((t) => t.thread_id === threadId)
   const threadMode = (currentThread?.metadata?.mode as ThreadMode) || "default"
+  const autoApproveInterrupts =
+    currentThread?.metadata?.autoApproveInterrupts === true ||
+    currentThread?.metadata?.disableApprovals === true
 
   // Background color based on thread mode
   const modeBgClass =
@@ -216,6 +219,35 @@ export function ChatContainer({ threadId }: ChatContainerProps): React.JSX.Eleme
     },
     [pendingApproval, setPendingApproval, stream, threadId, currentModel]
   )
+
+  const handleApproveAlways = useCallback(async (): Promise<void> => {
+    try {
+      await updateThread(threadId, {
+        metadata: {
+          ...(currentThread?.metadata || {}),
+          autoApproveInterrupts: true,
+          disableApprovals: true
+        }
+      })
+      await handleApprovalDecision("approve")
+    } catch (err) {
+      console.error("[ChatContainer] Failed to enable auto-approve:", err)
+    }
+  }, [updateThread, threadId, currentThread?.metadata, handleApprovalDecision])
+
+  const lastAutoApprovedRequestIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!pendingApproval) {
+      lastAutoApprovedRequestIdRef.current = null
+      return
+    }
+    if (!autoApproveInterrupts) return
+
+    const requestId = pendingApproval.id || pendingApproval.tool_call?.id || "__unknown__"
+    if (lastAutoApprovedRequestIdRef.current === requestId) return
+    lastAutoApprovedRequestIdRef.current = requestId
+    void handleApprovalDecision("approve")
+  }, [pendingApproval, autoApproveInterrupts, handleApprovalDecision])
 
   const agentValues = stream?.values as AgentStreamValues | undefined
   const streamTodos = agentValues?.todos
@@ -626,6 +658,7 @@ export function ChatContainer({ threadId }: ChatContainerProps): React.JSX.Eleme
                 toolResults={toolResults}
                 pendingApproval={pendingApproval}
                 onApprovalDecision={handleApprovalDecision}
+                onApproveAlways={handleApproveAlways}
               />
             ))}
 

@@ -194,6 +194,8 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
       const mode = (metadata.mode as ThreadMode) || "default"
       const settings = getSettings()
       const normalizedWorkspace = workspacePath || ""
+      const disableApprovalsForThread =
+        metadata.disableApprovals === true || metadata.createdBy === "quick-input"
 
       if (mode === "ralph") {
         const emitRalphLog = (
@@ -370,6 +372,7 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
           modelId,
           dockerConfig,
           dockerContainerId,
+          disableApprovals: disableApprovalsForThread,
           message,
           window,
           channel,
@@ -390,6 +393,7 @@ export function registerAgentHandlers(ipcMain: IpcMain): void {
         modelId,
         dockerConfig,
         dockerContainerId,
+        disableApprovals: disableApprovalsForThread,
         message,
         window,
         channel,
